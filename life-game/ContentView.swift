@@ -23,6 +23,21 @@ private enum SettingsDefaults {
     static let autoZoomEnabled = true
     static let autoStopEnabled = true
     static let cellColorHex = "#32D74B"
+    static let autoZoomModeRawValue = AutoZoomMode.fit.rawValue
+}
+
+enum AutoZoomMode: Int, CaseIterable, Identifiable {
+    case fit = 0
+    case out = 1
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .fit: return "Fit"
+        case .out: return "Out"
+        }
+    }
 }
 
 private enum PlaybackMetrics {
@@ -44,6 +59,7 @@ struct ContentView: View {
     @AppStorage("life.settings.autoZoomEnabled") private var autoZoomEnabled = SettingsDefaults.autoZoomEnabled
     @AppStorage("life.settings.autoStopEnabled") private var autoStopEnabled = SettingsDefaults.autoStopEnabled
     @AppStorage("life.settings.cellColorHex") private var cellColorHex = SettingsDefaults.cellColorHex
+    @AppStorage("life.settings.autoZoomMode") private var autoZoomModeRawValue = SettingsDefaults.autoZoomModeRawValue
 
     private var shouldShowFirstRunOverlay: Bool {
         engine.liveCells.isEmpty && !firstRunDismissed
@@ -102,6 +118,7 @@ struct ContentView: View {
                 generationSpeed: $generationSpeed,
                 autoZoomEnabled: $autoZoomEnabled,
                 autoStopEnabled: $autoStopEnabled,
+                autoZoomModeRawValue: $autoZoomModeRawValue,
                 cellColor: cellColorBinding,
                 onResetDefaults: resetSettingsToDefaults
             )
@@ -194,6 +211,7 @@ private func togglePlayPause() {
         autoZoomEnabled = SettingsDefaults.autoZoomEnabled
         autoStopEnabled = SettingsDefaults.autoStopEnabled
         cellColorHex = SettingsDefaults.cellColorHex
+        autoZoomModeRawValue = SettingsDefaults.autoZoomModeRawValue
     }
 
     private func stopPlayingIfNeeded(for outcome: GameOfLifeEngine.StepOutcome) {
@@ -220,10 +238,31 @@ private func togglePlayPause() {
 
         let centerX = CGFloat(bounds.minX + bounds.maxX) / 2
         let centerY = CGFloat(bounds.minY + bounds.maxY) / 2
-        let scale = LayoutMetrics.baseCellSize * clampedZoom
 
+        let currentZoom = zoomFactor
+        let mode = AutoZoomMode(rawValue: autoZoomModeRawValue) ?? .fit
+        let targetZoom: CGFloat
+        switch mode {
+        case .fit:
+            targetZoom = clampedZoom
+        case .out:
+            targetZoom = min(currentZoom, clampedZoom)
+        }
+
+        let targetScale = LayoutMetrics.baseCellSize * targetZoom
         withAnimation(.easeInOut(duration: 0.25)) {
-            zoomFactor = clampedZoom
+            if abs(targetZoom - zoomFactor) > 0.0005 {
+                zoomFactor = targetZoom
+            }
+            panOffset = CGSize(
+                width: -centerX * targetScale,
+                height: centerY * targetScale
+            )
+        }
+    }
+}
+                zoomFactor = clampedZoom
+            }
             panOffset = CGSize(
                 width: -centerX * scale,
                 height: centerY * scale
@@ -754,6 +793,7 @@ private struct SettingsView: View {
     @Binding var generationSpeed: Double
     @Binding var autoZoomEnabled: Bool
     @Binding var autoStopEnabled: Bool
+    @Binding var autoZoomModeRawValue: Int
     @Binding var cellColor: Color
     let onResetDefaults: () -> Void
 
@@ -789,6 +829,14 @@ private struct SettingsView: View {
                     SettingsSection(title: "Automation") {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle("Auto Zoom", isOn: $autoZoomEnabled)
+                            if autoZoomEnabled {
+                                Picker("Auto Zoom Mode", selection: $autoZoomModeRawValue) {
+                                    ForEach(AutoZoomMode.allCases) { mode in
+                                        Text(mode.label).tag(mode.rawValue)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                            }
                             Toggle("Auto Stop", isOn: $autoStopEnabled)
                         }
                     }

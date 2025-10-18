@@ -49,7 +49,9 @@ When the generations come to an end the life simulator should stop "playing" the
 ## Settings
 - Present a settings popup accessible from the control bar that surfaces simulation and display options without leaving the grid.
 - Allow users to adjust generation speed with a slider or segmented control (e.g., slow/normal/fast) that updates playback in real time.
-- Include toggles for auto-zoom (default on) and auto-stop (default on), with concise explanations of their behavior.
+- Include toggles for auto-zoom (default on) and auto-stop (default on), with concise explanations of their behavior. When auto-zoom is enabled, offer a mode selector:
+  - `Fit` (default): zoom both in and out so the buffered live area stays visible.
+  - `Out`: only zoom out (never zoom in automatically) ensuring existing framing is preserved while guaranteeing visibility.
 - Provide a color picker for life cells (solid color, no opacity slider) so users can customize the grid appearance.
 - Persist chosen settings so subsequent launches respect user preferences while still offering a quick “Reset to defaults” action.
 - The modal should feel compact and intentional: maintain 24pt horizontal padding, 20–24pt vertical spacing between sections, and constrain the content width so controls do not stretch edge-to-edge.
