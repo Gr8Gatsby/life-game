@@ -64,6 +64,30 @@ struct life_gameTests {
         #expect(engine.generation == 2)
     }
 
+    @Test func stepBackwardReturnsPreviousGeneration() async throws {
+        let blinker: Set<GridCoordinate> = [
+            GridCoordinate(x: 0, y: 0),
+            GridCoordinate(x: 1, y: 0),
+            GridCoordinate(x: 2, y: 0)
+        ]
+        let engine = GameOfLifeEngine(initialLiveCells: blinker)
+
+        _ = engine.step()
+
+        #expect(engine.generation == 1)
+        #expect(engine.liveCells == Set([
+            GridCoordinate(x: 1, y: -1),
+            GridCoordinate(x: 1, y: 0),
+            GridCoordinate(x: 1, y: 1)
+        ]))
+
+        let didRewind = engine.stepBackward()
+
+        #expect(didRewind)
+        #expect(engine.generation == 0)
+        #expect(engine.liveCells == blinker)
+    }
+
     @Test func boundsReflectLiveCells() async throws {
         let engine = GameOfLifeEngine(initialLiveCells: [
             GridCoordinate(x: -2, y: 3),

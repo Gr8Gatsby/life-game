@@ -128,6 +128,37 @@ public final class GameOfLifeEngine: ObservableObject {
         resetSimulationState()
     }
 
+    /// Inserts a batch of live cells, resetting the simulation if changes occur.
+    public func insert(_ coordinates: some Sequence<GridCoordinate>) {
+        var didChange = false
+        for coordinate in coordinates {
+            let result = liveCells.insert(coordinate)
+            didChange = didChange || result.inserted
+        }
+        if didChange {
+            resetSimulationState()
+        }
+    }
+
+    /// Rewinds the simulation by one generation if possible.
+    /// - Returns: `true` when the state moved back, otherwise `false`.
+    public func stepBackward() -> Bool {
+        guard generation > 0, history.count >= 2 else { return false }
+
+        let removedSnapshot = history.removeLast()
+        removeSnapshotFromRegistry(removedSnapshot)
+
+        guard let previousSnapshot = history.last else {
+            return false
+        }
+
+        liveCells = Set(previousSnapshot.cells)
+        generation -= 1
+        lastOutcome = .advanced
+
+        return true
+    }
+
     /// Clears all live cells and resets the simulation.
     public func clear() {
         guard !liveCells.isEmpty else { return }
@@ -233,6 +264,12 @@ public final class GameOfLifeEngine: ObservableObject {
             if !history.contains(removed) {
                 historySet.remove(removed)
             }
+        }
+    }
+
+    private func removeSnapshotFromRegistry(_ snapshot: StateSnapshot) {
+        if !history.contains(snapshot) {
+            historySet.remove(snapshot)
         }
     }
 }

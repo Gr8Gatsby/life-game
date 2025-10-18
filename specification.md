@@ -27,6 +27,7 @@ The user interface for humans must have a design system that supports themes thi
 - **Infinite grid canvas** fills the remaining vertical space between header and control bar; initial viewport is centered on coordinate (0,0) and must support panning/zooming for an effectively unbounded world.
 - **Control bar** anchors to the bottom, offering media-style playback controls (play, pause, step, reset) plus game-specific actions; sized smaller than the header so the grid visually dominates.
 - Layout adapts to iPhone/iPad/Mac, keeping the header + controls at fixed heights while the grid flexes.
+- Live cells render as sharp, square tiles (no rounded corners) with a configurable fill color sourced from Settings.
 
 ## Auto-zoom
 As life iterates through generations, it is important to see where all of the life is, so the application should auto-zoom the grid each generation to ensure that the life is visible. We should make auto-zoom smooth by adding a buffer zone around the visible grid area. So keeping 20% of the visible rows and columns on the outside of the grid as the buffer. If there are 10x10 grid this then the first two rows, first two columns of squares and the last two rows and last two columns of squares are the buffer zone for zooming.
@@ -40,3 +41,12 @@ When the generations come to an end the life simulator should stop "playing" the
 - Provide explicit zoom in/out buttons in the bottom control bar with smooth animated scaling of the grid.
 - Support pinch-to-zoom gestures on trackpads and touch screens; scroll-wheel pinch should map to the same zoom scale.
 - Clamp manual zoom within sensible bounds (e.g., 0.5x–40x) while allowing auto-zoom to temporarily override within that range when needed.
+
+## Settings
+- Present a settings popup accessible from the control bar that surfaces simulation and display options without leaving the grid.
+- Allow users to adjust generation speed with a slider or segmented control (e.g., slow/normal/fast) that updates playback in real time.
+- Include toggles for auto-zoom (default on) and auto-stop (default on), with concise explanations of their behavior.
+- Provide a color picker for life cells (solid color, no opacity slider) so users can customize the grid appearance.
+- Persist chosen settings so subsequent launches respect user preferences while still offering a quick “Reset to defaults” action.
+- The modal should feel compact and intentional: maintain 24pt horizontal padding, 20–24pt vertical spacing between sections, and constrain the content width so controls do not stretch edge-to-edge.
+- Group related controls under clear section headers and ensure buttons align with their section content rather than the full sheet width. 
