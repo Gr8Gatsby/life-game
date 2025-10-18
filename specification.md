@@ -38,6 +38,7 @@ The user interface for humans must have a design system that supports themes thi
 - Selecting a pattern enters stamp mode: the pattern preview follows the cursor with a translucent overlay matching the life color until placement. Clicking commits the pattern; pressing Escape cancels without placement.
 - Include an edit-mode toggle in the control bar; the application launches with edit mode on and the toolbar visible, replacing the old first-run overlay.
 - Maintain an undo/redo history of at least 50 actions (stamps, toggles, clears). Support Command+Z for undo and Command+Shift+Z for redo. Playing the simulation clears the action history.
+- When playback starts, automatically disable edit mode and hide the toolbar until editing is re-enabled.
 
 ## Auto-zoom
 As life iterates through generations, it is important to see where all of the life is, so the application should auto-zoom the grid each generation to ensure that the life is visible. We should make auto-zoom smooth by adding a buffer zone around the visible grid area. So keeping 20% of the visible rows and columns on the outside of the grid as the buffer. If there are 10x10 grid this then the first two rows, first two columns of squares and the last two rows and last two columns of squares are the buffer zone for zooming.

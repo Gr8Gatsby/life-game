@@ -246,6 +246,8 @@ private func togglePlayPause() {
 
     private func startPlaying() {
         guard !isPlaying else { return }
+        isEditMode = false
+        activePattern = nil
         isPlaying = true
         clearHistories()
         recordPopulationSnapshot(force: true)
