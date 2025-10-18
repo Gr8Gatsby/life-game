@@ -23,6 +23,9 @@ private enum SettingsDefaults {
     static let autoZoomEnabled = true
     static let autoStopEnabled = true
     static let cellColorHex = "#32D74B"
+    static let gridBackgroundHex = "#050505"
+    static let gridLineHex = "#808080"
+    static let axisLineHex = "#C0C0C0"
     static let autoZoomModeRawValue = AutoZoomMode.fit.rawValue
 }
 
@@ -59,6 +62,9 @@ struct ContentView: View {
     @AppStorage("life.settings.autoZoomEnabled") private var autoZoomEnabled = SettingsDefaults.autoZoomEnabled
     @AppStorage("life.settings.autoStopEnabled") private var autoStopEnabled = SettingsDefaults.autoStopEnabled
     @AppStorage("life.settings.cellColorHex") private var cellColorHex = SettingsDefaults.cellColorHex
+    @AppStorage("life.settings.gridBackgroundHex") private var gridBackgroundHex = SettingsDefaults.gridBackgroundHex
+    @AppStorage("life.settings.gridLineHex") private var gridLineHex = SettingsDefaults.gridLineHex
+    @AppStorage("life.settings.axisLineHex") private var axisLineHex = SettingsDefaults.axisLineHex
     @AppStorage("life.settings.autoZoomMode") private var autoZoomModeRawValue = SettingsDefaults.autoZoomModeRawValue
 
     private var shouldShowFirstRunOverlay: Bool {
@@ -76,6 +82,9 @@ struct ContentView: View {
                     maxZoom: LayoutMetrics.maxZoom,
                     baseCellSize: LayoutMetrics.baseCellSize,
                     cellColor: cellColor,
+                    gridBackgroundColor: gridBackgroundColor,
+                    gridLineColor: gridLineColor,
+                    axisLineColor: axisLineColor,
                     panOffset: $panOffset,
                     gridSize: $gridSize
                 )
@@ -120,11 +129,14 @@ struct ContentView: View {
                 autoStopEnabled: $autoStopEnabled,
                 autoZoomModeRawValue: $autoZoomModeRawValue,
                 cellColor: cellColorBinding,
+                gridBackgroundColor: gridBackgroundBinding,
+                gridLineColor: gridLineBinding,
+                axisLineColor: axisLineBinding,
                 onResetDefaults: resetSettingsToDefaults
             )
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowFirstRunOverlay)
-        .onChange(of: generationSpeed) { _ in
+        .onChange(of: generationSpeed) { _, _ in
             if isPlaying { rescheduleTimer() }
         }
         .onDisappear {
@@ -136,12 +148,57 @@ struct ContentView: View {
         Color(hex: cellColorHex) ?? .green
     }
 
+    private var gridBackgroundColor: Color {
+        Color(hex: gridBackgroundHex) ?? Color(red: 5/255, green: 5/255, blue: 5/255)
+    }
+
+    private var gridLineColor: Color {
+        Color(hex: gridLineHex) ?? .gray.opacity(0.35)
+    }
+
+    private var axisLineColor: Color {
+        Color(hex: axisLineHex) ?? .white.opacity(0.35)
+    }
+
     private var cellColorBinding: Binding<Color> {
         Binding(
             get: { cellColor },
             set: { newValue in
                 if let hex = newValue.hexString {
                     cellColorHex = hex
+                }
+            }
+        )
+    }
+
+    private var gridBackgroundBinding: Binding<Color> {
+        Binding(
+            get: { gridBackgroundColor },
+            set: { newValue in
+                if let hex = newValue.hexString {
+                    gridBackgroundHex = hex
+                }
+            }
+        )
+    }
+
+    private var gridLineBinding: Binding<Color> {
+        Binding(
+            get: { gridLineColor },
+            set: { newValue in
+                if let hex = newValue.hexString {
+                    gridLineHex = hex
+                }
+            }
+        )
+    }
+
+    private var axisLineBinding: Binding<Color> {
+        Binding(
+            get: { axisLineColor },
+            set: { newValue in
+                if let hex = newValue.hexString {
+                    axisLineHex = hex
                 }
             }
         )
@@ -212,6 +269,9 @@ private func togglePlayPause() {
         autoStopEnabled = SettingsDefaults.autoStopEnabled
         cellColorHex = SettingsDefaults.cellColorHex
         autoZoomModeRawValue = SettingsDefaults.autoZoomModeRawValue
+        gridBackgroundHex = SettingsDefaults.gridBackgroundHex
+        gridLineHex = SettingsDefaults.gridLineHex
+        axisLineHex = SettingsDefaults.axisLineHex
     }
 
     private func stopPlayingIfNeeded(for outcome: GameOfLifeEngine.StepOutcome) {
@@ -236,6 +296,19 @@ private func togglePlayPause() {
         let desiredZoom = min(maxZoomX, maxZoomY)
         let clampedZoom = min(LayoutMetrics.maxZoom, max(LayoutMetrics.minZoom, desiredZoom))
 
+        if !force {
+            let currentScale = LayoutMetrics.baseCellSize * zoomFactor
+            if currentScale > .ulpOfOne {
+                let viewHalfWidth = gridSize.width / (2 * currentScale)
+                let viewHalfHeight = gridSize.height / (2 * currentScale)
+                let requiredHalfWidth = widthCells * bufferMultiplier / 2
+                let requiredHalfHeight = heightCells * bufferMultiplier / 2
+                if viewHalfWidth >= requiredHalfWidth && viewHalfHeight >= requiredHalfHeight {
+                    return
+                }
+            }
+        }
+
         let centerX = CGFloat(bounds.minX + bounds.maxX) / 2
         let centerY = CGFloat(bounds.minY + bounds.maxY) / 2
 
@@ -257,15 +330,6 @@ private func togglePlayPause() {
             panOffset = CGSize(
                 width: -centerX * targetScale,
                 height: centerY * targetScale
-            )
-        }
-    }
-}
-                zoomFactor = clampedZoom
-            }
-            panOffset = CGSize(
-                width: -centerX * scale,
-                height: centerY * scale
             )
         }
     }
@@ -340,6 +404,9 @@ private struct LifeGridContainer: View {
     let maxZoom: CGFloat
     let baseCellSize: CGFloat
     let cellColor: Color
+    let gridBackgroundColor: Color
+    let gridLineColor: Color
+    let axisLineColor: Color
     @Binding var panOffset: CGSize
     @Binding var gridSize: CGSize
 
@@ -350,16 +417,18 @@ private struct LifeGridContainer: View {
     var body: some View {
         GeometryReader { geometry in
             let canvasSize = geometry.size
-            let gridGeometry = GridGeometry(
-                canvasSize: canvasSize,
-                scale: scaledCellSize,
-                pan: currentPan
-            )
+            let effectiveZoom = max(zoomFactor * magnificationState, LayoutMetrics.minZoom)
+        let gridGeometry = GridGeometry(
+            canvasSize: canvasSize,
+            scale: scaledCellSize,
+            pan: currentPan,
+            zoomFactor: effectiveZoom
+        )
             ZStack {
-                Color.clear
+                gridBackgroundColor
                     .allowsHitTesting(false)
                     .onAppear { gridSize = canvasSize }
-                    .onChange(of: canvasSize) { newValue in
+                    .onChange(of: canvasSize) { _, newValue in
                         gridSize = newValue
                     }
                 LifeGridView(
@@ -461,11 +530,14 @@ private struct LifeGridView: View {
         }
     }
 
-    private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize) {
+private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize) {
         guard gridGeometry.scale > 2 else { return }
 
-        let columns = Int(ceil(canvasSize.width / gridGeometry.scale)) + 2
-        let rows = Int(ceil(canvasSize.height / gridGeometry.scale)) + 2
+        let spacing = gridGeometry.aggregatedScale
+        guard spacing > .ulpOfOne else { return }
+
+        let columns = Int(ceil(canvasSize.width / spacing)) + 2
+        let rows = Int(ceil(canvasSize.height / spacing)) + 2
 
         var gridPath = Path()
         for column in -columns...columns {
@@ -480,7 +552,7 @@ private struct LifeGridView: View {
             gridPath.addLine(to: CGPoint(x: canvasSize.width, y: y))
         }
 
-        context.stroke(gridPath, with: .color(.gray.opacity(0.35)), lineWidth: 0.5)
+        context.stroke(gridPath, with: .color(gridLineColor), lineWidth: 0.5)
 
         var axesPath = Path()
         axesPath.move(to: CGPoint(x: 0, y: gridGeometry.center.y))
@@ -488,43 +560,20 @@ private struct LifeGridView: View {
         axesPath.move(to: CGPoint(x: gridGeometry.center.x, y: 0))
         axesPath.addLine(to: CGPoint(x: gridGeometry.center.x, y: canvasSize.height))
 
-        context.stroke(axesPath, with: .color(.white.opacity(0.8)), lineWidth: 1.2)
+        context.stroke(axesPath, with: .color(axisLineColor), lineWidth: 1.0)
     }
 
     private func drawCells(in context: inout GraphicsContext) {
-        if gridGeometry.groupSize == 1 {
-            for cell in engine.liveCells {
-                let rect = gridGeometry.rectForCell(cell)
-                let path = Path(rect)
-                context.fill(path, with: .color(cellColor))
-            }
-        } else {
-            var grouped: [GridCoordinate: Int] = [:]
-            for cell in engine.liveCells {
-                let key = gridGeometry.groupCoordinate(for: cell)
-                grouped[key, default: 0] += 1
-            }
-
-            let groupCapacity = gridGeometry.groupSize * gridGeometry.groupSize
-            for (groupCoord, count) in grouped {
-                let rect = gridGeometry.rectForGroup(groupCoord)
-                let occupancy = Double(count) / Double(groupCapacity)
-                let alpha = 0.4 + 0.6 * occupancy
-                let path = Path(rect)
-                context.fill(path, with: .color(cellColor.opacity(alpha)))
-            }
+        for cell in engine.liveCells {
+            let rect = gridGeometry.rectForCell(cell)
+            let path = Path(rect)
+            context.fill(path, with: .color(cellColor))
         }
     }
 
     private func drawHover(in context: inout GraphicsContext) {
         guard let hoverCoordinate else { return }
-        let rect: CGRect
-        if gridGeometry.groupSize == 1 {
-            rect = gridGeometry.rectForCell(hoverCoordinate)
-        } else {
-            let groupCoord = gridGeometry.groupCoordinate(for: hoverCoordinate)
-            rect = gridGeometry.rectForGroup(groupCoord)
-        }
+        let rect = gridGeometry.rectForCell(hoverCoordinate)
         let path = Path(rect)
         context.stroke(path, with: .color(cellColor), lineWidth: 2)
     }
@@ -534,6 +583,7 @@ private struct GridGeometry {
     let canvasSize: CGSize
     let scale: CGFloat
     let pan: CGSize
+    let aggregatedScale: CGFloat
     let groupSize: Int
 
     var center: CGPoint {
@@ -543,11 +593,12 @@ private struct GridGeometry {
         )
     }
 
-    init(canvasSize: CGSize, scale: CGFloat, pan: CGSize) {
+    init(canvasSize: CGSize, scale: CGFloat, pan: CGSize, zoomFactor: CGFloat) {
         self.canvasSize = canvasSize
         self.scale = scale
         self.pan = pan
-        self.groupSize = GridGeometry.computeGroupSize(for: scale)
+        self.groupSize = GridGeometry.computeGroupSize(for: zoomFactor)
+        self.aggregatedScale = scale * CGFloat(groupSize)
     }
 
     func rectForCell(_ coordinate: GridCoordinate) -> CGRect {
@@ -559,20 +610,6 @@ private struct GridGeometry {
         return CGRect(origin: origin, size: CGSize(width: scale, height: scale))
     }
 
-    func rectForGroup(_ groupCoordinate: GridCoordinate) -> CGRect {
-        let minX = groupCoordinate.x * groupSize
-        let minY = groupCoordinate.y * groupSize
-
-        var unionRect: CGRect?
-        for x in minX..<(minX + groupSize) {
-            for y in minY..<(minY + groupSize) {
-                let rect = rectForCell(GridCoordinate(x: x, y: y))
-                unionRect = unionRect?.union(rect) ?? rect
-            }
-        }
-        return unionRect ?? .zero
-    }
-
     func coordinate(for point: CGPoint) -> GridCoordinate? {
         guard scale > .ulpOfOne else { return nil }
         let dx = (point.x - center.x) / scale
@@ -582,42 +619,25 @@ private struct GridGeometry {
         return GridCoordinate(x: x, y: y)
     }
 
-    func groupCoordinate(for coordinate: GridCoordinate) -> GridCoordinate {
-        let g = groupSize
-        return GridCoordinate(
-            x: GridGeometry.floorDivide(coordinate.x, g),
-            y: GridGeometry.floorDivide(coordinate.y, g)
-        )
-    }
-
     func verticalLinePosition(for column: Int) -> CGFloat {
-        center.x + (CGFloat(column) - 0.5) * scale
+        center.x + (CGFloat(column) - 0.5) * aggregatedScale
     }
 
     func horizontalLinePosition(for row: Int) -> CGFloat {
-        center.y + (CGFloat(row) - 0.5) * scale
+        center.y + (CGFloat(row) - 0.5) * aggregatedScale
     }
 
-    private static func computeGroupSize(for scale: CGFloat) -> Int {
-        let normalized = scale / LayoutMetrics.baseCellSize
-        if normalized >= 0.5 {
+    private static func computeGroupSize(for zoomFactor: CGFloat) -> Int {
+        let safeFactor = max(zoomFactor, 0.0001)
+        let zoomOut = max(1.0, 1.0 / safeFactor)
+        if zoomOut < 1.5 {
             return 1
-        } else if normalized >= 0.25 {
+        } else if zoomOut < 2.5 {
             return 2
-        } else if normalized >= 0.125 {
+        } else if zoomOut < 3.5 {
             return 3
         } else {
             return 4
-        }
-    }
-
-    private static func floorDivide(_ a: Int, _ b: Int) -> Int {
-        let quotient = a / b
-        let remainder = a % b
-        if remainder >= 0 {
-            return quotient
-        } else {
-            return quotient - 1
         }
     }
 }
@@ -795,6 +815,9 @@ private struct SettingsView: View {
     @Binding var autoStopEnabled: Bool
     @Binding var autoZoomModeRawValue: Int
     @Binding var cellColor: Color
+    @Binding var gridBackgroundColor: Color
+    @Binding var gridLineColor: Color
+    @Binding var axisLineColor: Color
     let onResetDefaults: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -842,11 +865,11 @@ private struct SettingsView: View {
                     }
 
                     SettingsSection(title: "Appearance") {
-                        HStack {
-                            Text("Life Cell Color")
-                            Spacer()
-                            ColorPicker("", selection: $cellColor, supportsOpacity: false)
-                                .labelsHidden()
+                        VStack(alignment: .leading, spacing: 12) {
+                            colorRow(title: "Life Cell", binding: $cellColor)
+                            colorRow(title: "Grid Background", binding: $gridBackgroundColor)
+                            colorRow(title: "Grid Lines", binding: $gridLineColor)
+                            colorRow(title: "Center Lines", binding: $axisLineColor)
                         }
                     }
 
@@ -869,6 +892,15 @@ private struct SettingsView: View {
             }
         }
         .frame(minWidth: 360, idealWidth: 400, maxWidth: 440, minHeight: 300)
+    }
+
+    private func colorRow(title: String, binding: Binding<Color>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            ColorPicker("", selection: binding, supportsOpacity: false)
+                .labelsHidden()
+        }
     }
 }
 

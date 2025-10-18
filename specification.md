@@ -36,6 +36,7 @@ The user interface for humans must have a design system that supports themes thi
 As life iterates through generations, it is important to see where all of the life is, so the application should auto-zoom the grid each generation to ensure that the life is visible. We should make auto-zoom smooth by adding a buffer zone around the visible grid area. So keeping 20% of the visible rows and columns on the outside of the grid as the buffer. If there are 10x10 grid this then the first two rows, first two columns of squares and the last two rows and last two columns of squares are the buffer zone for zooming.
 * auto-zoom out - as life grows we want to auto-zoom out
 * auto-zoom in - if life is shrinking we want to auto-zoom in
+- Avoid disrupting the user’s framing when the buffered live area already fits on screen; only adjust zoom/pan when required to keep the population visible or when explicitly forced.
 - While the simulation is playing with auto-zoom enabled, automatically zoom out when live cells would extend beyond the buffered view so the entire population remains visible; zoom back in when the bounding box shrinks.
 
 ## Auto-stop
@@ -44,7 +45,8 @@ When the generations come to an end the life simulator should stop "playing" the
 ## Zoom controls
 - Provide explicit zoom in/out buttons in the bottom control bar with smooth animated scaling of the grid.
 - Support pinch-to-zoom gestures on trackpads and touch screens; scroll-wheel pinch should map to the same zoom scale.
-- Zoom can scale far out; when cells would render smaller than 1/4 of their normal size, aggregate them into larger tiles (4-cell blocks, then 9, then 16) so detail remains legible. The furthest zoom should show a 4×4 block occupying the same screen size as a single cell at 1×.
+- Zoom can scale far out; when the zoom factor represents a 2×, 3×, or 4× zoom-out, draw 2×2, 3×3, or 4×4 blocks respectively so detail stays legible. The furthest zoom should show a 4×4 block occupying the same screen size as a single cell at 1×.
+- Grid lines snap to the same aggregation levels as the cells: at 2× zoom the lattice outlines 2×2 squares, at 3× zoom it outlines 3×3 squares, etc. The hover highlight still describes a single life cell so the user can toggle individual cells regardless of zoom.
 
 ## Settings
 - Present a settings popup accessible from the control bar that surfaces simulation and display options without leaving the grid.
@@ -53,6 +55,7 @@ When the generations come to an end the life simulator should stop "playing" the
   - `Fit` (default): zoom both in and out so the buffered live area stays visible.
   - `Out`: only zoom out (never zoom in automatically) ensuring existing framing is preserved while guaranteeing visibility.
 - Provide a color picker for life cells (solid color, no opacity slider) so users can customize the grid appearance.
+- Extend theming with color pickers for the grid background, grid lines, and the center axes so users can tailor the board to their preference.
 - Persist chosen settings so subsequent launches respect user preferences while still offering a quick “Reset to defaults” action.
 - The modal should feel compact and intentional: maintain 24pt horizontal padding, 20–24pt vertical spacing between sections, and constrain the content width so controls do not stretch edge-to-edge.
 - Group related controls under clear section headers and ensure buttons align with their section content rather than the full sheet width. 
