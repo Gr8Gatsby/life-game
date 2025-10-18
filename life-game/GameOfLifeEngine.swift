@@ -96,7 +96,7 @@ public final class GameOfLifeEngine: ObservableObject {
     }
 
     public convenience init(historyLimit: Int = 256) {
-        self.init(initialLiveCells: Set<GridCoordinate>(), historyLimit: historyLimit)
+        self.init(initialLiveCells: [], historyLimit: historyLimit)
     }
 
     /// Returns true when the coordinate currently hosts a live cell.

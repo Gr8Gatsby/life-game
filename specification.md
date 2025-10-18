@@ -29,8 +29,15 @@ The user interface for humans must have a design system that supports themes thi
 - **Control bar** anchors to the bottom, offering media-style playback controls (play, pause, step, reset) plus game-specific actions; sized smaller than the header so the grid visually dominates.
 - Layout adapts to iPhone/iPad/Mac, keeping the header + controls at fixed heights while the grid flexes.
 - Live cells render as sharp, square tiles (no rounded corners) with a configurable fill color sourced from Settings.
-- The grid supports direct editing: clicking or tapping a dead square toggles it alive, and selecting a live square toggles it dead; pointer hover highlights the target square with a border using the configured life color.
+- The analytics header tracks current population, max live cells, min live cells, and shows a compact sparkline of population over recent generations.
+- The grid supports direct editing via an edit mode: when enabled, users can stamp pre-defined patterns or toggle individual cells; pointer hover highlights the target square with a border using the configured life color.
 - Rendering, hover outlines, and hit-testing must share the same coordinate transform so visual cells always sit exactly inside grid lines—no offsets between the drawn square, grid highlight, and the cell that toggles.
+
+### Edit Toolbar
+- Provide a left-aligned toolbar (visible only in edit mode) with at least ten well-known Conway patterns (e.g., Glider, Lightweight spaceship, Pulsar, Gosper glider gun, Block, Blinker, Toad, Beacon, Loaf, Boat) that users can stamp onto the grid. The toolbar should feel integrated with the window chrome and push the grid content to the right when visible.
+- Selecting a pattern enters stamp mode: the pattern preview follows the cursor with a translucent overlay matching the life color until placement. Clicking commits the pattern; pressing Escape cancels without placement.
+- Include an edit-mode toggle in the control bar; the application launches with edit mode on and the toolbar visible, replacing the old first-run overlay.
+- Maintain an undo/redo history of at least 50 actions (stamps, toggles, clears). Support Command+Z for undo and Command+Shift+Z for redo. Playing the simulation clears the action history.
 
 ## Auto-zoom
 As life iterates through generations, it is important to see where all of the life is, so the application should auto-zoom the grid each generation to ensure that the life is visible. We should make auto-zoom smooth by adding a buffer zone around the visible grid area. So keeping 20% of the visible rows and columns on the outside of the grid as the buffer. If there are 10x10 grid this then the first two rows, first two columns of squares and the last two rows and last two columns of squares are the buffer zone for zooming.

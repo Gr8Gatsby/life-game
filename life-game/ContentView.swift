@@ -55,8 +55,14 @@ struct ContentView: View {
     @State private var gridSize: CGSize = .zero
     @State private var isPlaying = false
     @State private var showSettings = false
-    @State private var firstRunDismissed = false
+    @State private var isEditMode = true
+    @State private var activePattern: PatternStamp? = nil
     @State private var playTimer: Timer?
+    @State private var maxLiveCells: Int = 0
+    @State private var minLiveCells: Int = 0
+    @State private var populationHistory: [Int] = []
+    @State private var undoHistory: [ActionRecord] = []
+    @State private var redoHistory: [ActionRecord] = []
 
     @AppStorage("life.settings.generationSpeed") private var generationSpeed = SettingsDefaults.generationSpeed
     @AppStorage("life.settings.autoZoomEnabled") private var autoZoomEnabled = SettingsDefaults.autoZoomEnabled
@@ -67,60 +73,83 @@ struct ContentView: View {
     @AppStorage("life.settings.axisLineHex") private var axisLineHex = SettingsDefaults.axisLineHex
     @AppStorage("life.settings.autoZoomMode") private var autoZoomModeRawValue = SettingsDefaults.autoZoomModeRawValue
 
-    private var shouldShowFirstRunOverlay: Bool {
-        engine.liveCells.isEmpty && !firstRunDismissed
-    }
-
     var body: some View {
-        ZStack(alignment: .top) {
-            VStack(spacing: 0) {
-                AnalyticsHeaderView(engine: engine)
-                LifeGridContainer(
-                    engine: engine,
-                    zoomFactor: $zoomFactor,
-                    minZoom: LayoutMetrics.minZoom,
-                    maxZoom: LayoutMetrics.maxZoom,
-                    baseCellSize: LayoutMetrics.baseCellSize,
-                    cellColor: cellColor,
-                    gridBackgroundColor: gridBackgroundColor,
-                    gridLineColor: gridLineColor,
-                    axisLineColor: axisLineColor,
-                    panOffset: $panOffset,
-                    gridSize: $gridSize
-                )
-                ControlBarView(
-                    isPlaying: isPlaying,
-                    canStepBackward: engine.generation > 0,
-                    onPlayToggle: togglePlayPause,
-                    onStepForward: stepForward,
-                    onStepBackward: stepBackward,
-                    onReset: resetSimulation,
-                    onZoomOut: { adjustZoom(by: -0.2) },
-                    onZoomIn: { adjustZoom(by: 0.2) },
-                    onZoomReset: {
-                        zoomFactor = 1.0
-                        panOffset = .zero
-                    },
-                    onShowSettings: { showSettings = true }
-                )
-            }
-            .background(.background)
+        ZStack(alignment: .topLeading) {
+            HStack(spacing: 0) {
+                if isEditMode {
+                    PatternSidebar(
+                        patterns: PatternStamp.library,
+                        selectedPattern: activePattern,
+                        cellColor: cellColor,
+                        backgroundColor: gridBackgroundColor,
+                        onSelect: { activePattern = $0 }
+                    )
+                }
 
-            if shouldShowFirstRunOverlay {
-                FirstRunOverlayView(
-                    patterns: StarterPattern.catalog,
-                    onPatternSelected: { pattern in
-                        engine.insert(pattern.coordinates)
-                        firstRunDismissed = true
-                    },
-                    onCustom: {
-                        firstRunDismissed = true
-                    },
-                    onDismiss: { firstRunDismissed = true }
-                )
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .padding()
+                VStack(spacing: 0) {
+                    AnalyticsHeaderView(
+                        engine: engine,
+                        maxLiveCells: maxLiveCells,
+                        minLiveCells: minLiveCells,
+                        populationHistory: populationHistory,
+                        cellColor: cellColor,
+                        backgroundColor: gridBackgroundColor
+                    )
+                    LifeGridContainer(
+                        engine: engine,
+                        zoomFactor: $zoomFactor,
+                        minZoom: LayoutMetrics.minZoom,
+                        maxZoom: LayoutMetrics.maxZoom,
+                        baseCellSize: LayoutMetrics.baseCellSize,
+                        cellColor: cellColor,
+                        gridBackgroundColor: gridBackgroundColor,
+                        gridLineColor: gridLineColor,
+                        axisLineColor: axisLineColor,
+                        isEditMode: isEditMode,
+                        activePattern: activePattern,
+                        onToggleCell: { performToggle(at: $0) },
+                        onStampPattern: { coordinate, pattern in performStamp(pattern: pattern, at: coordinate) },
+                        panOffset: $panOffset,
+                        gridSize: $gridSize
+                    )
+                    ControlBarView(
+                        isPlaying: isPlaying,
+                        isEditMode: isEditMode,
+                        canStepBackward: engine.generation > 0,
+                        onPlayToggle: togglePlayPause,
+                        onStepForward: stepForward,
+                        onStepBackward: stepBackward,
+                        onReset: resetSimulation,
+                        onZoomOut: { adjustZoom(by: -0.2) },
+                        onZoomIn: { adjustZoom(by: 0.2) },
+                        onZoomReset: {
+                            zoomFactor = 1.0
+                            panOffset = .zero
+                        },
+                        onShowSettings: { showSettings = true },
+                        onEditModeToggle: { newValue in
+                            isEditMode = newValue
+                            if !newValue { activePattern = nil }
+                        }
+                    )
+                }
+                .background(.background)
             }
+
+            Button(action: undoAction) { EmptyView() }
+                .keyboardShortcut("z", modifiers: [.command])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+
+            Button(action: redoAction) { EmptyView() }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+
+            Button(action: { activePattern = nil }) { EmptyView() }
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0)
+                .opacity(0)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
@@ -135,12 +164,14 @@ struct ContentView: View {
                 onResetDefaults: resetSettingsToDefaults
             )
         }
-        .animation(.easeInOut(duration: 0.2), value: shouldShowFirstRunOverlay)
         .onChange(of: generationSpeed) { _, _ in
             if isPlaying { rescheduleTimer() }
         }
         .onDisappear {
             stopPlaying()
+        }
+        .onAppear {
+            recordPopulationSnapshot(force: true)
         }
     }
 
@@ -216,6 +247,8 @@ private func togglePlayPause() {
     private func startPlaying() {
         guard !isPlaying else { return }
         isPlaying = true
+        clearHistories()
+        recordPopulationSnapshot(force: true)
         rescheduleTimer()
     }
 
@@ -237,6 +270,7 @@ private func togglePlayPause() {
 
     private func stepForward() {
         let outcome = engine.step()
+        recordPopulationSnapshot()
         applyAutoZoomIfNeeded()
         stopPlayingIfNeeded(for: outcome)
     }
@@ -244,6 +278,7 @@ private func togglePlayPause() {
     private func stepBackward() {
         guard engine.stepBackward() else { return }
         applyAutoZoomIfNeeded(force: true)
+        recordPopulationSnapshot(force: true)
     }
 
     private func resetSimulation() {
@@ -251,7 +286,12 @@ private func togglePlayPause() {
         zoomFactor = 1.0
         panOffset = .zero
         stopPlaying()
-        firstRunDismissed = false
+        maxLiveCells = 0
+        minLiveCells = 0
+        populationHistory.removeAll()
+        activePattern = nil
+        clearHistories()
+        recordPopulationSnapshot(force: true)
     }
 
     private func adjustZoom(by delta: CGFloat) {
@@ -278,6 +318,96 @@ private func togglePlayPause() {
         if autoStopEnabled && outcome.isTerminal {
             stopPlaying()
         }
+    }
+
+    private func recordPopulationSnapshot(force: Bool = false) {
+        let count = engine.liveCells.count
+        guard force || populationHistory.last != count else { return }
+
+        populationHistory.append(count)
+        if populationHistory.count > 120 {
+            populationHistory.removeFirst()
+        }
+
+        if populationHistory.count == 1 || count > maxLiveCells {
+            maxLiveCells = count
+        }
+
+        if populationHistory.count == 1 || count < minLiveCells {
+            minLiveCells = count
+        }
+    }
+
+    private func performToggle(at coordinate: GridCoordinate) {
+        guard isEditMode else { return }
+        let wasAlive = engine.isAlive(coordinate)
+        let nowAlive = !wasAlive
+        guard wasAlive != nowAlive else { return }
+        let change = CellChange(coordinate: coordinate, oldState: wasAlive, newState: nowAlive)
+        applyChanges([change])
+    }
+
+    private func performStamp(pattern: PatternStamp, at coordinate: GridCoordinate) {
+        guard isEditMode else { return }
+        var changes: [CellChange] = []
+        var seen = Set<GridCoordinate>()
+        for offset in pattern.offsets {
+            let target = GridCoordinate(x: coordinate.x + offset.x, y: coordinate.y + offset.y)
+            guard seen.insert(target).inserted else { continue }
+            let wasAlive = engine.isAlive(target)
+            if !wasAlive {
+                changes.append(CellChange(coordinate: target, oldState: false, newState: true))
+            }
+        }
+        applyChanges(changes)
+    }
+
+    private func applyChanges(_ changes: [CellChange], trackHistory: Bool = true) {
+        guard !changes.isEmpty else { return }
+
+        for change in changes {
+            if change.newState {
+                engine.setAlive(true, at: change.coordinate)
+            } else {
+                engine.setAlive(false, at: change.coordinate)
+            }
+        }
+
+        if trackHistory {
+            undoHistory.append(ActionRecord(changes: changes))
+            if undoHistory.count > 50 {
+                undoHistory.removeFirst()
+            }
+            redoHistory.removeAll()
+        }
+
+        recordPopulationSnapshot(force: true)
+    }
+
+    private func undoAction() {
+        guard let record = undoHistory.popLast() else { return }
+        let reversal = record.changes.map { change in
+            CellChange(coordinate: change.coordinate, oldState: change.newState, newState: change.oldState)
+        }
+        applyChanges(reversal, trackHistory: false)
+        redoHistory.append(record)
+        if redoHistory.count > 50 {
+            redoHistory.removeFirst()
+        }
+    }
+
+    private func redoAction() {
+        guard let record = redoHistory.popLast() else { return }
+        applyChanges(record.changes, trackHistory: false)
+        undoHistory.append(record)
+        if undoHistory.count > 50 {
+            undoHistory.removeFirst()
+        }
+    }
+
+    private func clearHistories() {
+        undoHistory.removeAll()
+        redoHistory.removeAll()
     }
 
     private func applyAutoZoomIfNeeded(force: Bool = false) {
@@ -337,6 +467,11 @@ private func togglePlayPause() {
 
 private struct AnalyticsHeaderView: View {
     @ObservedObject var engine: GameOfLifeEngine
+    let maxLiveCells: Int
+    let minLiveCells: Int
+    let populationHistory: [Int]
+    let cellColor: Color
+    let backgroundColor: Color
 
     private var hasActivity: Bool {
         engine.generation > 0 || !engine.liveCells.isEmpty
@@ -351,6 +486,8 @@ private struct AnalyticsHeaderView: View {
                 HStack(spacing: 16) {
                     MetricView(title: "Generation", value: "\(engine.generation)")
                     MetricView(title: "Live Cells", value: "\(engine.liveCells.count)")
+                    MetricView(title: "Max", value: "\(maxLiveCells)")
+                    MetricView(title: "Min", value: "\(minLiveCells)")
                     MetricView(title: "Outcome", value: outcomeDescription(engine.lastOutcome))
                     Spacer()
                 }
@@ -358,6 +495,14 @@ private struct AnalyticsHeaderView: View {
                 Text("Toggle cells in the grid or drop a starter pattern to begin the simulation.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+            if !populationHistory.isEmpty {
+                PopulationSparkline(
+                    data: populationHistory,
+                    lineColor: cellColor,
+                    fillColor: backgroundColor
+                )
+                    .padding(.top, 4)
             }
         }
         .padding(.horizontal, 20)
@@ -397,6 +542,66 @@ private struct MetricView: View {
     }
 }
 
+private struct PopulationSparkline: View {
+    let data: [Int]
+    let lineColor: Color
+    let fillColor: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let points = normalizedPoints(in: geometry.size)
+            Path { path in
+                guard let first = points.first else { return }
+                path.move(to: first)
+                for point in points.dropFirst() {
+                    path.addLine(to: point)
+                }
+            }
+            .stroke(lineColor.opacity(0.8), lineWidth: 1.5)
+            .background(
+                Path { path in
+                    guard let first = points.first,
+                          let last = points.last else { return }
+                    path.move(to: CGPoint(x: first.x, y: geometry.size.height))
+                    path.addLine(to: first)
+                    for point in points.dropFirst() {
+                        path.addLine(to: point)
+                    }
+                    path.addLine(to: CGPoint(x: last.x, y: geometry.size.height))
+                    path.closeSubpath()
+                }
+                .fill(fillColor.opacity(0.35))
+            )
+        }
+        .frame(height: 36)
+    }
+
+    private func normalizedPoints(in size: CGSize) -> [CGPoint] {
+        guard !data.isEmpty, size.width > 0 else { return [] }
+        let maxValue = CGFloat(data.max() ?? 1)
+        let minValue = CGFloat(data.min() ?? 0)
+        let span = max(maxValue - minValue, 1)
+        let stepX = size.width / max(CGFloat(data.count - 1), 1)
+
+        return data.enumerated().map { index, value in
+            let normalizedY = (CGFloat(value) - minValue) / span
+            let x = CGFloat(index) * stepX
+            let y = size.height * (1 - normalizedY)
+            return CGPoint(x: x, y: y)
+        }
+    }
+}
+
+private struct CellChange {
+    let coordinate: GridCoordinate
+    let oldState: Bool
+    let newState: Bool
+}
+
+private struct ActionRecord {
+    let changes: [CellChange]
+}
+
 private struct LifeGridContainer: View {
     @ObservedObject var engine: GameOfLifeEngine
     @Binding var zoomFactor: CGFloat
@@ -407,6 +612,10 @@ private struct LifeGridContainer: View {
     let gridBackgroundColor: Color
     let gridLineColor: Color
     let axisLineColor: Color
+    let isEditMode: Bool
+    let activePattern: PatternStamp?
+    let onToggleCell: (GridCoordinate) -> Void
+    let onStampPattern: (GridCoordinate, PatternStamp) -> Void
     @Binding var panOffset: CGSize
     @Binding var gridSize: CGSize
 
@@ -418,32 +627,34 @@ private struct LifeGridContainer: View {
         GeometryReader { geometry in
             let canvasSize = geometry.size
             let effectiveZoom = max(zoomFactor * magnificationState, LayoutMetrics.minZoom)
-        let gridGeometry = GridGeometry(
-            canvasSize: canvasSize,
-            scale: scaledCellSize,
-            pan: currentPan,
-            zoomFactor: effectiveZoom
-        )
+            let gridGeometry = GridGeometry(
+                canvasSize: canvasSize,
+                scale: scaledCellSize,
+                pan: currentPan,
+                zoomFactor: effectiveZoom
+            )
             ZStack {
                 gridBackgroundColor
                     .allowsHitTesting(false)
                     .onAppear { gridSize = canvasSize }
-                    .onChange(of: canvasSize) { _, newValue in
-                        gridSize = newValue
-                    }
+                    .onChange(of: canvasSize) { _, newValue in gridSize = newValue }
                 LifeGridView(
                     engine: engine,
                     gridGeometry: gridGeometry,
                     cellColor: cellColor,
+                    gridLineColor: gridLineColor,
+                    axisLineColor: axisLineColor,
+                    isEditMode: isEditMode,
+                    activePattern: activePattern,
                     hoverCoordinate: hoverCoordinate(using: gridGeometry)
                 )
             }
-            .background(Color.black.opacity(0.85))
             .contentShape(Rectangle())
             .gesture(panGesture)
             .simultaneousGesture(pinchGesture)
 #if os(macOS)
             .onContinuousHover(coordinateSpace: .local) { phase in
+                guard isEditMode else { hoverLocation = nil; return }
                 switch phase {
                 case .active(let location):
                     hoverLocation = location
@@ -494,20 +705,22 @@ private struct LifeGridContainer: View {
     private func tapGesture(using geometry: GridGeometry) -> some Gesture {
         SpatialTapGesture()
             .onEnded { value in
-                toggleCell(at: value.location, geometry: geometry)
+                applyEdit(at: value.location, geometry: geometry)
             }
     }
 
-    private func toggleCell(at location: CGPoint, geometry: GridGeometry) {
-        guard let coordinate = geometry.coordinate(for: location) else {
-            return
+    private func applyEdit(at location: CGPoint, geometry: GridGeometry) {
+        guard isEditMode, let coordinate = geometry.coordinate(for: location) else { return }
+        if let pattern = activePattern {
+            onStampPattern(coordinate, pattern)
+        } else {
+            onToggleCell(coordinate)
         }
-        engine.toggle(coordinate)
         hoverLocation = location
     }
 
     private func hoverCoordinate(using geometry: GridGeometry) -> GridCoordinate? {
-        guard let hoverLocation else { return nil }
+        guard isEditMode, let hoverLocation else { return nil }
         return geometry.coordinate(for: hoverLocation)
     }
 
@@ -520,6 +733,10 @@ private struct LifeGridView: View {
     @ObservedObject var engine: GameOfLifeEngine
     let gridGeometry: GridGeometry
     let cellColor: Color
+    let gridLineColor: Color
+    let axisLineColor: Color
+    let isEditMode: Bool
+    let activePattern: PatternStamp?
     let hoverCoordinate: GridCoordinate?
 
     var body: some View {
@@ -530,7 +747,7 @@ private struct LifeGridView: View {
         }
     }
 
-private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize) {
+    private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize) {
         guard gridGeometry.scale > 2 else { return }
 
         let spacing = gridGeometry.aggregatedScale
@@ -572,10 +789,215 @@ private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize) {
     }
 
     private func drawHover(in context: inout GraphicsContext) {
-        guard let hoverCoordinate else { return }
-        let rect = gridGeometry.rectForCell(hoverCoordinate)
-        let path = Path(rect)
-        context.stroke(path, with: .color(cellColor), lineWidth: 2)
+        guard isEditMode, let hoverCoordinate else { return }
+        if let pattern = activePattern {
+            for offset in pattern.offsets {
+                let coordinate = GridCoordinate(x: hoverCoordinate.x + offset.x, y: hoverCoordinate.y + offset.y)
+                let rect = gridGeometry.rectForCell(coordinate)
+                let path = Path(rect)
+                context.fill(path, with: .color(cellColor.opacity(0.25)))
+                context.stroke(path, with: .color(cellColor.opacity(0.6)), lineWidth: 1)
+            }
+        } else {
+            let rect = gridGeometry.rectForCell(hoverCoordinate)
+            let path = Path(rect)
+            context.stroke(path, with: .color(cellColor), lineWidth: 2)
+        }
+    }
+}
+
+private struct PatternStamp: Identifiable, Equatable {
+    struct Bounds {
+        let minX: Int
+        let minY: Int
+        let width: Int
+        let height: Int
+    }
+
+    let id: String
+    let name: String
+    let offsets: [GridCoordinate]
+
+    init(name: String, offsets: [GridCoordinate]) {
+        self.id = name
+        self.name = name
+        self.offsets = offsets
+    }
+
+    var bounds: Bounds {
+        guard let minX = offsets.map(\.x).min(),
+              let maxX = offsets.map(\.x).max(),
+              let minY = offsets.map(\.y).min(),
+              let maxY = offsets.map(\.y).max() else {
+            return Bounds(minX: 0, minY: 0, width: 1, height: 1)
+        }
+        return Bounds(minX: minX, minY: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+    }
+
+    static let library: [PatternStamp] = [
+        PatternStamp.make("Block", [(0,0),(1,0),(0,1),(1,1)]),
+        PatternStamp.make("Beehive", [(1,0),(2,0),(0,1),(3,1),(1,2),(2,2)]),
+        PatternStamp.make("Loaf", [(1,0),(2,0),(0,1),(3,1),(1,2),(3,2),(2,3)]),
+        PatternStamp.make("Boat", [(0,0),(1,0),(0,1),(2,1),(1,2)]),
+        PatternStamp.make("Blinker", [(0,0),(1,0),(2,0)]),
+        PatternStamp.make("Toad", [(1,0),(2,0),(3,0),(0,1),(1,1),(2,1)]),
+        PatternStamp.make("Beacon", [(0,0),(1,0),(0,1),(1,1),(2,2),(3,2),(2,3),(3,3)]),
+        PatternStamp.make("Pulsar", PatternStamp.pulsarOffsets),
+        PatternStamp.make("Glider", [(0,1),(1,2),(2,0),(2,1),(2,2)]),
+        PatternStamp.make("R-pentomino", [(1,0),(2,0),(0,1),(1,1),(1,2)]),
+        PatternStamp.make("Diehard", [(7,0),(0,1),(1,1),(1,2),(6,2),(7,2),(8,2)]),
+        PatternStamp.make("Gosper Gun", PatternStamp.gosperGunOffsets)
+    ]
+
+    private static func make(_ name: String, _ tuples: [(Int, Int)]) -> PatternStamp {
+        PatternStamp(name: name, offsets: tuples.map { GridCoordinate(x: $0.0, y: $0.1) })
+    }
+
+    private static let pulsarOffsets: [(Int, Int)] = [
+        (2,0),(3,0),(4,0),(8,0),(9,0),(10,0),
+        (0,2),(5,2),(7,2),(12,2),
+        (0,3),(5,3),(7,3),(12,3),
+        (0,4),(5,4),(7,4),(12,4),
+        (2,5),(3,5),(4,5),(8,5),(9,5),(10,5),
+        (2,7),(3,7),(4,7),(8,7),(9,7),(10,7),
+        (0,8),(5,8),(7,8),(12,8),
+        (0,9),(5,9),(7,9),(12,9),
+        (0,10),(5,10),(7,10),(12,10),
+        (2,12),(3,12),(4,12),(8,12),(9,12),(10,12)
+    ]
+
+    private static let gosperGunOffsets: [(Int, Int)] = [
+        (0,4),(0,5),(1,4),(1,5),
+        (10,4),(10,5),(10,6),
+        (11,3),(11,7),
+        (12,2),(12,8),
+        (13,2),(13,8),
+        (14,5),
+        (15,3),(15,7),
+        (16,4),(16,5),(16,6),
+        (17,5),
+        (20,2),(20,3),(20,4),
+        (21,2),(21,3),(21,4),
+        (22,1),(22,5),
+        (24,0),(24,1),(24,5),(24,6),
+        (34,2),(34,3),(35,2),(35,3)
+    ]
+}
+
+private struct PatternThumbnail: View {
+    let pattern: PatternStamp
+    let cellColor: Color
+    let backgroundColor: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let bounds = pattern.bounds
+            let width = CGFloat(bounds.width)
+            let height = CGFloat(bounds.height)
+            let scale = min((geometry.size.width - 4) / max(width, 1), (geometry.size.height - 4) / max(height, 1))
+            let offsetX = (geometry.size.width - width * scale) / 2
+            let offsetY = (geometry.size.height - height * scale) / 2
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(backgroundColor.opacity(0.6))
+
+                ForEach(pattern.offsets, id: \.self) { coordinate in
+                    let normalizedX = CGFloat(coordinate.x - bounds.minX)
+                    let normalizedY = CGFloat(coordinate.y - bounds.minY)
+                    let rect = CGRect(
+                        x: offsetX + normalizedX * scale,
+                        y: offsetY + normalizedY * scale,
+                        width: scale,
+                        height: scale
+                    )
+                    Path { path in
+                        path.addRect(rect)
+                    }
+                    .fill(cellColor)
+                }
+            }
+        }
+    }
+}
+
+private struct PatternToolbar: View {
+    let patterns: [PatternStamp]
+    let selectedPattern: PatternStamp?
+    let cellColor: Color
+    let backgroundColor: Color
+    let onSelect: (PatternStamp?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("Patterns")
+                    .font(.headline)
+                Spacer()
+                Button("Clear") { onSelect(nil) }
+                    .buttonStyle(.borderless)
+            }
+
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 12)], spacing: 12) {
+                    ForEach(patterns) { pattern in
+                        Button {
+                            if selectedPattern?.id == pattern.id {
+                                onSelect(nil)
+                            } else {
+                                onSelect(pattern)
+                            }
+                        } label: {
+                            VStack(spacing: 4) {
+                                PatternThumbnail(pattern: pattern, cellColor: cellColor, backgroundColor: backgroundColor)
+                                    .frame(width: 44, height: 44)
+                                Text(pattern.name)
+                                    .font(.caption2)
+                                    .multilineTextAlignment(.center)
+                                    .foregroundStyle(.primary.opacity(0.8))
+                            }
+                            .padding(6)
+                            .frame(width: 70)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(selectedPattern?.id == pattern.id ? cellColor.opacity(0.18) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(selectedPattern?.id == pattern.id ? cellColor : Color.primary.opacity(0.08), lineWidth: selectedPattern?.id == pattern.id ? 2 : 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(16)
+    }
+}
+
+private struct PatternSidebar: View {
+    let patterns: [PatternStamp]
+    let selectedPattern: PatternStamp?
+    let cellColor: Color
+    let backgroundColor: Color
+    let onSelect: (PatternStamp?) -> Void
+
+    var body: some View {
+        PatternToolbar(
+            patterns: patterns,
+            selectedPattern: selectedPattern,
+            cellColor: cellColor,
+            backgroundColor: backgroundColor,
+            onSelect: onSelect
+        )
+        .frame(width: 220)
+        .background(.thinMaterial)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.05))
+                .frame(width: 1)
+        }
     }
 }
 
@@ -644,6 +1066,7 @@ private struct GridGeometry {
 
 private struct ControlBarView: View {
     let isPlaying: Bool
+    let isEditMode: Bool
     let canStepBackward: Bool
     let onPlayToggle: () -> Void
     let onStepForward: () -> Void
@@ -653,6 +1076,7 @@ private struct ControlBarView: View {
     let onZoomIn: () -> Void
     let onZoomReset: () -> Void
     let onShowSettings: () -> Void
+    let onEditModeToggle: (Bool) -> Void
 
     var body: some View {
         HStack(spacing: 20) {
@@ -692,6 +1116,16 @@ private struct ControlBarView: View {
 
             Spacer()
 
+            Toggle(isOn: Binding(
+                get: { isEditMode },
+                set: { newValue in
+                    onEditModeToggle(newValue)
+                }
+            )) {
+                Label("Edit", systemImage: "pencil.and.outline")
+            }
+            .toggleStyle(.button)
+
             Button(action: onShowSettings) {
                 Label("Settings", systemImage: "slider.horizontal.3")
             }
@@ -705,109 +1139,6 @@ private struct ControlBarView: View {
     }
 }
 
-private struct FirstRunOverlayView: View {
-    let patterns: [StarterPattern]
-    let onPatternSelected: (StarterPattern) -> Void
-    let onCustom: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Jump Start Your Universe")
-                .font(.title3.weight(.semibold))
-
-            Text("Start by toggling cells on the grid or drop one of these classic patterns. Pan with a drag, pinch (or use the buttons below) to zoom.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 12) {
-                ForEach(patterns) { pattern in
-                    Button {
-                        onPatternSelected(pattern)
-                    } label: {
-                        VStack(spacing: 6) {
-                            Text(pattern.name)
-                                .font(.headline)
-                            Text(pattern.caption)
-                                .font(.caption)
-                                .multilineTextAlignment(.center)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                }
-                Button {
-                    onCustom()
-                } label: {
-                    VStack(spacing: 6) {
-                        Text("Custom")
-                            .font(.headline)
-                        Text("Paint your own pattern.")
-                            .font(.caption)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-            }
-
-            HStack {
-                Spacer()
-                Button("Dismiss") {
-                    onDismiss()
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.15), radius: 25, x: 0, y: 8)
-    }
-}
-
-private struct StarterPattern: Identifiable {
-    let id = UUID()
-    let name: String
-    let caption: String
-    let coordinates: [GridCoordinate]
-
-    static let catalog: [StarterPattern] = [
-        StarterPattern(
-            name: "Glider",
-            caption: "A self-propelled spaceship.",
-            coordinates: [
-                GridCoordinate(x: 0, y: 0),
-                GridCoordinate(x: 1, y: 0),
-                GridCoordinate(x: 2, y: 0),
-                GridCoordinate(x: 2, y: -1),
-                GridCoordinate(x: 1, y: -2)
-            ]
-        ),
-        StarterPattern(
-            name: "Blinker",
-            caption: "Oscillates every other tick.",
-            coordinates: [
-                GridCoordinate(x: -1, y: 0),
-                GridCoordinate(x: 0, y: 0),
-                GridCoordinate(x: 1, y: 0)
-            ]
-        ),
-        StarterPattern(
-            name: "Block",
-            caption: "Simple still life.",
-            coordinates: [
-                GridCoordinate(x: 0, y: 0),
-                GridCoordinate(x: 1, y: 0),
-                GridCoordinate(x: 0, y: 1),
-                GridCoordinate(x: 1, y: 1)
-            ]
-        )
-    ]
-}
 
 private struct SettingsView: View {
     @Binding var generationSpeed: Double
