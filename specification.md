@@ -30,11 +30,13 @@ The user interface for humans must have a design system that supports themes thi
 - Layout adapts to iPhone/iPad/Mac, keeping the header + controls at fixed heights while the grid flexes.
 - Live cells render as sharp, square tiles (no rounded corners) with a configurable fill color sourced from Settings.
 - The grid supports direct editing: clicking or tapping a dead square toggles it alive, and selecting a live square toggles it dead; pointer hover highlights the target square with a border using the configured life color.
+- Rendering, hover outlines, and hit-testing must share the same coordinate transform so visual cells always sit exactly inside grid lines—no offsets between the drawn square, grid highlight, and the cell that toggles.
 
 ## Auto-zoom
 As life iterates through generations, it is important to see where all of the life is, so the application should auto-zoom the grid each generation to ensure that the life is visible. We should make auto-zoom smooth by adding a buffer zone around the visible grid area. So keeping 20% of the visible rows and columns on the outside of the grid as the buffer. If there are 10x10 grid this then the first two rows, first two columns of squares and the last two rows and last two columns of squares are the buffer zone for zooming.
 * auto-zoom out - as life grows we want to auto-zoom out
 * auto-zoom in - if life is shrinking we want to auto-zoom in
+- While the simulation is playing with auto-zoom enabled, automatically zoom out when live cells would extend beyond the buffered view so the entire population remains visible; zoom back in when the bounding box shrinks.
 
 ## Auto-stop
 When the generations come to an end the life simulator should stop "playing" the simulation as the simulation is complete.
@@ -42,7 +44,7 @@ When the generations come to an end the life simulator should stop "playing" the
 ## Zoom controls
 - Provide explicit zoom in/out buttons in the bottom control bar with smooth animated scaling of the grid.
 - Support pinch-to-zoom gestures on trackpads and touch screens; scroll-wheel pinch should map to the same zoom scale.
-- Clamp manual zoom within sensible bounds (e.g., 0.5x–40x) while allowing auto-zoom to temporarily override within that range when needed.
+- Zoom can scale far out; when cells would render smaller than 1/4 of their normal size, aggregate them into larger tiles (4-cell blocks, then 9, then 16) so detail remains legible. The furthest zoom should show a 4×4 block occupying the same screen size as a single cell at 1×.
 
 ## Settings
 - Present a settings popup accessible from the control bar that surfaces simulation and display options without leaving the grid.

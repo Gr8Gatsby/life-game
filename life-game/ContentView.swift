@@ -14,7 +14,7 @@ import UIKit
 
 private enum LayoutMetrics {
     static let baseCellSize: CGFloat = 24
-    static let minZoom: CGFloat = 0.5
+    static let minZoom: CGFloat = 0.05
     static let maxZoom: CGFloat = 4.0
 }
 
@@ -33,6 +33,8 @@ struct ContentView: View {
     @StateObject private var engine = GameOfLifeEngine()
 
     @State private var zoomFactor: CGFloat = 1.0
+    @State private var panOffset: CGSize = .zero
+    @State private var gridSize: CGSize = .zero
     @State private var isPlaying = false
     @State private var showSettings = false
     @State private var firstRunDismissed = false
@@ -57,7 +59,9 @@ struct ContentView: View {
                     minZoom: LayoutMetrics.minZoom,
                     maxZoom: LayoutMetrics.maxZoom,
                     baseCellSize: LayoutMetrics.baseCellSize,
-                    cellColor: cellColor
+                    cellColor: cellColor,
+                    panOffset: $panOffset,
+                    gridSize: $gridSize
                 )
                 ControlBarView(
                     isPlaying: isPlaying,
@@ -68,7 +72,10 @@ struct ContentView: View {
                     onReset: resetSimulation,
                     onZoomOut: { adjustZoom(by: -0.2) },
                     onZoomIn: { adjustZoom(by: 0.2) },
-                    onZoomReset: { zoomFactor = 1.0 },
+                    onZoomReset: {
+                        zoomFactor = 1.0
+                        panOffset = .zero
+                    },
                     onShowSettings: { showSettings = true }
                 )
             }
@@ -123,11 +130,12 @@ struct ContentView: View {
         )
     }
 
-    private func togglePlayPause() {
+private func togglePlayPause() {
         if isPlaying {
             stopPlaying()
         } else {
             startPlaying()
+            applyAutoZoomIfNeeded(force: true)
         }
     }
 
@@ -154,16 +162,20 @@ struct ContentView: View {
     }
 
     private func stepForward() {
-        stopPlayingIfNeeded(for: engine.step())
+        let outcome = engine.step()
+        applyAutoZoomIfNeeded()
+        stopPlayingIfNeeded(for: outcome)
     }
 
     private func stepBackward() {
         guard engine.stepBackward() else { return }
+        applyAutoZoomIfNeeded(force: true)
     }
 
     private func resetSimulation() {
         engine.clear()
         zoomFactor = 1.0
+        panOffset = .zero
         stopPlaying()
         firstRunDismissed = false
     }
@@ -187,6 +199,35 @@ struct ContentView: View {
     private func stopPlayingIfNeeded(for outcome: GameOfLifeEngine.StepOutcome) {
         if autoStopEnabled && outcome.isTerminal {
             stopPlaying()
+        }
+    }
+
+    private func applyAutoZoomIfNeeded(force: Bool = false) {
+        guard (force || isPlaying),
+              autoZoomEnabled,
+              gridSize.width > 0,
+              gridSize.height > 0,
+              let bounds = engine.bounds else { return }
+
+        let bufferMultiplier: CGFloat = 1.2
+        let widthCells = max(CGFloat(bounds.width), 1)
+        let heightCells = max(CGFloat(bounds.height), 1)
+
+        let maxZoomX = gridSize.width / (LayoutMetrics.baseCellSize * widthCells * bufferMultiplier)
+        let maxZoomY = gridSize.height / (LayoutMetrics.baseCellSize * heightCells * bufferMultiplier)
+        let desiredZoom = min(maxZoomX, maxZoomY)
+        let clampedZoom = min(LayoutMetrics.maxZoom, max(LayoutMetrics.minZoom, desiredZoom))
+
+        let centerX = CGFloat(bounds.minX + bounds.maxX) / 2
+        let centerY = CGFloat(bounds.minY + bounds.maxY) / 2
+        let scale = LayoutMetrics.baseCellSize * clampedZoom
+
+        withAnimation(.easeInOut(duration: 0.25)) {
+            zoomFactor = clampedZoom
+            panOffset = CGSize(
+                width: -centerX * scale,
+                height: centerY * scale
+            )
         }
     }
 }
@@ -260,8 +301,9 @@ private struct LifeGridContainer: View {
     let maxZoom: CGFloat
     let baseCellSize: CGFloat
     let cellColor: Color
+    @Binding var panOffset: CGSize
+    @Binding var gridSize: CGSize
 
-    @State private var accumulatedPan: CGSize = .zero
     @GestureState private var dragOffset: CGSize = .zero
     @GestureState private var magnificationState: CGFloat = 1.0
     @State private var hoverLocation: CGPoint?
@@ -269,13 +311,25 @@ private struct LifeGridContainer: View {
     var body: some View {
         GeometryReader { geometry in
             let canvasSize = geometry.size
-            LifeGridView(
-                engine: engine,
-                pan: currentPan,
+            let gridGeometry = GridGeometry(
+                canvasSize: canvasSize,
                 scale: scaledCellSize,
-                cellColor: cellColor,
-                hoverCoordinate: hoverCoordinate(for: canvasSize)
+                pan: currentPan
             )
+            ZStack {
+                Color.clear
+                    .allowsHitTesting(false)
+                    .onAppear { gridSize = canvasSize }
+                    .onChange(of: canvasSize) { newValue in
+                        gridSize = newValue
+                    }
+                LifeGridView(
+                    engine: engine,
+                    gridGeometry: gridGeometry,
+                    cellColor: cellColor,
+                    hoverCoordinate: hoverCoordinate(using: gridGeometry)
+                )
+            }
             .background(Color.black.opacity(0.85))
             .contentShape(Rectangle())
             .gesture(panGesture)
@@ -290,7 +344,7 @@ private struct LifeGridContainer: View {
                 }
             }
 #endif
-            .simultaneousGesture(tapGesture(in: canvasSize))
+            .simultaneousGesture(tapGesture(using: gridGeometry))
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Life grid")
         }
@@ -298,8 +352,8 @@ private struct LifeGridContainer: View {
     }
 
     private var currentPan: CGSize {
-        CGSize(width: accumulatedPan.width + dragOffset.width,
-               height: accumulatedPan.height + dragOffset.height)
+        CGSize(width: panOffset.width + dragOffset.width,
+               height: panOffset.height + dragOffset.height)
     }
 
     private var scaledCellSize: CGFloat {
@@ -313,8 +367,8 @@ private struct LifeGridContainer: View {
                 state = value.translation
             }
             .onEnded { value in
-                accumulatedPan.width += value.translation.width
-                accumulatedPan.height += value.translation.height
+                panOffset.width += value.translation.width
+                panOffset.height += value.translation.height
             }
     }
 
@@ -329,36 +383,24 @@ private struct LifeGridContainer: View {
             }
     }
 
-    private func tapGesture(in size: CGSize) -> some Gesture {
+    private func tapGesture(using geometry: GridGeometry) -> some Gesture {
         SpatialTapGesture()
             .onEnded { value in
-                toggleCell(at: value.location, canvasSize: size)
+                toggleCell(at: value.location, geometry: geometry)
             }
     }
 
-    private func toggleCell(at location: CGPoint, canvasSize: CGSize) {
-        let currentScale = scaledCellSize
-        guard let coordinate = coordinate(for: location, size: canvasSize, pan: currentPan, scale: currentScale) else {
+    private func toggleCell(at location: CGPoint, geometry: GridGeometry) {
+        guard let coordinate = geometry.coordinate(for: location) else {
             return
         }
         engine.toggle(coordinate)
         hoverLocation = location
     }
 
-    private func hoverCoordinate(for size: CGSize) -> GridCoordinate? {
+    private func hoverCoordinate(using geometry: GridGeometry) -> GridCoordinate? {
         guard let hoverLocation else { return nil }
-        return coordinate(for: hoverLocation, size: size, pan: currentPan, scale: scaledCellSize)
-    }
-
-    private func coordinate(for point: CGPoint, size: CGSize, pan: CGSize, scale: CGFloat) -> GridCoordinate? {
-        guard scale > 0.001 else { return nil }
-        let center = CGPoint(
-            x: size.width / 2 + pan.width,
-            y: size.height / 2 + pan.height
-        )
-        let relativeX = (point.x - center.x) / scale
-        let relativeY = (center.y - point.y) / scale
-        return GridCoordinate(x: Int(round(relativeX)), y: Int(round(relativeY)))
+        return geometry.coordinate(for: hoverLocation)
     }
 
     private func clamp(_ value: CGFloat) -> CGFloat {
@@ -368,38 +410,33 @@ private struct LifeGridContainer: View {
 
 private struct LifeGridView: View {
     @ObservedObject var engine: GameOfLifeEngine
-    let pan: CGSize
-    let scale: CGFloat
+    let gridGeometry: GridGeometry
     let cellColor: Color
     let hoverCoordinate: GridCoordinate?
 
     var body: some View {
         Canvas { context, canvasSize in
-            let center = CGPoint(x: canvasSize.width / 2 + pan.width,
-                                 y: canvasSize.height / 2 + pan.height)
-            drawGrid(in: &context, canvasSize: canvasSize, center: center)
-            drawCells(in: &context, center: center)
-            drawHover(in: &context, center: center)
+            drawGrid(in: &context, canvasSize: canvasSize)
+            drawCells(in: &context)
+            drawHover(in: &context)
         }
     }
 
-    private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize, center: CGPoint) {
-        guard scale > 2 else { return }
+    private func drawGrid(in context: inout GraphicsContext, canvasSize: CGSize) {
+        guard gridGeometry.scale > 2 else { return }
 
-        let columns = Int(ceil(canvasSize.width / scale)) + 4
-        let rows = Int(ceil(canvasSize.height / scale)) + 4
-        let startX = center.x.truncatingRemainder(dividingBy: scale)
-        let startY = center.y.truncatingRemainder(dividingBy: scale)
+        let columns = Int(ceil(canvasSize.width / gridGeometry.scale)) + 2
+        let rows = Int(ceil(canvasSize.height / gridGeometry.scale)) + 2
 
         var gridPath = Path()
         for column in -columns...columns {
-            let x = startX + CGFloat(column) * scale
+            let x = gridGeometry.verticalLinePosition(for: column)
             gridPath.move(to: CGPoint(x: x, y: 0))
             gridPath.addLine(to: CGPoint(x: x, y: canvasSize.height))
         }
 
         for row in -rows...rows {
-            let y = startY + CGFloat(row) * scale
+            let y = gridGeometry.horizontalLinePosition(for: row)
             gridPath.move(to: CGPoint(x: 0, y: y))
             gridPath.addLine(to: CGPoint(x: canvasSize.width, y: y))
         }
@@ -407,37 +444,142 @@ private struct LifeGridView: View {
         context.stroke(gridPath, with: .color(.gray.opacity(0.35)), lineWidth: 0.5)
 
         var axesPath = Path()
-        axesPath.move(to: CGPoint(x: 0, y: center.y))
-        axesPath.addLine(to: CGPoint(x: canvasSize.width, y: center.y))
-        axesPath.move(to: CGPoint(x: center.x, y: 0))
-        axesPath.addLine(to: CGPoint(x: center.x, y: canvasSize.height))
+        axesPath.move(to: CGPoint(x: 0, y: gridGeometry.center.y))
+        axesPath.addLine(to: CGPoint(x: canvasSize.width, y: gridGeometry.center.y))
+        axesPath.move(to: CGPoint(x: gridGeometry.center.x, y: 0))
+        axesPath.addLine(to: CGPoint(x: gridGeometry.center.x, y: canvasSize.height))
 
         context.stroke(axesPath, with: .color(.white.opacity(0.8)), lineWidth: 1.2)
     }
 
-    private func drawCells(in context: inout GraphicsContext, center: CGPoint) {
-        let cellRect = CGRect(x: -scale / 2, y: -scale / 2, width: scale, height: scale)
-        for cell in engine.liveCells {
-            let position = CGPoint(
-                x: center.x + CGFloat(cell.x) * scale,
-                y: center.y - CGFloat(cell.y) * scale
-            )
-            let rect = cellRect.offsetBy(dx: position.x, dy: position.y)
-            let path = Path(rect)
-            context.fill(path, with: .color(cellColor))
+    private func drawCells(in context: inout GraphicsContext) {
+        if gridGeometry.groupSize == 1 {
+            for cell in engine.liveCells {
+                let rect = gridGeometry.rectForCell(cell)
+                let path = Path(rect)
+                context.fill(path, with: .color(cellColor))
+            }
+        } else {
+            var grouped: [GridCoordinate: Int] = [:]
+            for cell in engine.liveCells {
+                let key = gridGeometry.groupCoordinate(for: cell)
+                grouped[key, default: 0] += 1
+            }
+
+            let groupCapacity = gridGeometry.groupSize * gridGeometry.groupSize
+            for (groupCoord, count) in grouped {
+                let rect = gridGeometry.rectForGroup(groupCoord)
+                let occupancy = Double(count) / Double(groupCapacity)
+                let alpha = 0.4 + 0.6 * occupancy
+                let path = Path(rect)
+                context.fill(path, with: .color(cellColor.opacity(alpha)))
+            }
         }
     }
 
-    private func drawHover(in context: inout GraphicsContext, center: CGPoint) {
+    private func drawHover(in context: inout GraphicsContext) {
         guard let hoverCoordinate else { return }
-        let cellRect = CGRect(x: -scale / 2, y: -scale / 2, width: scale, height: scale)
-        let position = CGPoint(
-            x: center.x + CGFloat(hoverCoordinate.x) * scale,
-            y: center.y - CGFloat(hoverCoordinate.y) * scale
-        )
-        let rect = cellRect.offsetBy(dx: position.x, dy: position.y)
+        let rect: CGRect
+        if gridGeometry.groupSize == 1 {
+            rect = gridGeometry.rectForCell(hoverCoordinate)
+        } else {
+            let groupCoord = gridGeometry.groupCoordinate(for: hoverCoordinate)
+            rect = gridGeometry.rectForGroup(groupCoord)
+        }
         let path = Path(rect)
         context.stroke(path, with: .color(cellColor), lineWidth: 2)
+    }
+}
+
+private struct GridGeometry {
+    let canvasSize: CGSize
+    let scale: CGFloat
+    let pan: CGSize
+    let groupSize: Int
+
+    var center: CGPoint {
+        CGPoint(
+            x: canvasSize.width / 2 + pan.width,
+            y: canvasSize.height / 2 + pan.height
+        )
+    }
+
+    init(canvasSize: CGSize, scale: CGFloat, pan: CGSize) {
+        self.canvasSize = canvasSize
+        self.scale = scale
+        self.pan = pan
+        self.groupSize = GridGeometry.computeGroupSize(for: scale)
+    }
+
+    func rectForCell(_ coordinate: GridCoordinate) -> CGRect {
+        guard scale > .ulpOfOne else { return .zero }
+        let origin = CGPoint(
+            x: center.x + (CGFloat(coordinate.x) - 0.5) * scale,
+            y: center.y - (CGFloat(coordinate.y) + 0.5) * scale
+        )
+        return CGRect(origin: origin, size: CGSize(width: scale, height: scale))
+    }
+
+    func rectForGroup(_ groupCoordinate: GridCoordinate) -> CGRect {
+        let minX = groupCoordinate.x * groupSize
+        let minY = groupCoordinate.y * groupSize
+
+        var unionRect: CGRect?
+        for x in minX..<(minX + groupSize) {
+            for y in minY..<(minY + groupSize) {
+                let rect = rectForCell(GridCoordinate(x: x, y: y))
+                unionRect = unionRect?.union(rect) ?? rect
+            }
+        }
+        return unionRect ?? .zero
+    }
+
+    func coordinate(for point: CGPoint) -> GridCoordinate? {
+        guard scale > .ulpOfOne else { return nil }
+        let dx = (point.x - center.x) / scale
+        let dy = (center.y - point.y) / scale
+        let x = Int(round(dx))
+        let y = Int(round(dy))
+        return GridCoordinate(x: x, y: y)
+    }
+
+    func groupCoordinate(for coordinate: GridCoordinate) -> GridCoordinate {
+        let g = groupSize
+        return GridCoordinate(
+            x: GridGeometry.floorDivide(coordinate.x, g),
+            y: GridGeometry.floorDivide(coordinate.y, g)
+        )
+    }
+
+    func verticalLinePosition(for column: Int) -> CGFloat {
+        center.x + (CGFloat(column) - 0.5) * scale
+    }
+
+    func horizontalLinePosition(for row: Int) -> CGFloat {
+        center.y + (CGFloat(row) - 0.5) * scale
+    }
+
+    private static func computeGroupSize(for scale: CGFloat) -> Int {
+        let normalized = scale / LayoutMetrics.baseCellSize
+        if normalized >= 0.5 {
+            return 1
+        } else if normalized >= 0.25 {
+            return 2
+        } else if normalized >= 0.125 {
+            return 3
+        } else {
+            return 4
+        }
+    }
+
+    private static func floorDivide(_ a: Int, _ b: Int) -> Int {
+        let quotient = a / b
+        let remainder = a % b
+        if remainder >= 0 {
+            return quotient
+        } else {
+            return quotient - 1
+        }
     }
 }
 
