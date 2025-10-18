@@ -21,6 +21,7 @@ The user interface for humans must have a design system that supports themes thi
 - When the app launches with an empty universe, guide the user through placing initial life: display a lightweight overlay that highlights tap/click gestures and offers quick actions to drop common starter patterns (e.g., Glider, Blinker, Block).
 - Provide a dismissible inline hint near the grid that explains how to toggle cells, pan, and zoom; ensure it only reappears when the grid is empty to avoid clutter.
 - Seed the analytics header with explanatory copy until the simulation has produced at least one generation so the top area is not visually barren on first run.
+- Offer a “Custom” option during first run that simply closes the overlay and highlights that users can paint cells directly on the grid.
 
 ### UI Layout
 - **Header analytics bar** sits at the top with room for graphs and key simulation metrics; it remains visible while the grid updates.
@@ -28,6 +29,7 @@ The user interface for humans must have a design system that supports themes thi
 - **Control bar** anchors to the bottom, offering media-style playback controls (play, pause, step, reset) plus game-specific actions; sized smaller than the header so the grid visually dominates.
 - Layout adapts to iPhone/iPad/Mac, keeping the header + controls at fixed heights while the grid flexes.
 - Live cells render as sharp, square tiles (no rounded corners) with a configurable fill color sourced from Settings.
+- The grid supports direct editing: clicking or tapping a dead square toggles it alive, and selecting a live square toggles it dead; pointer hover highlights the target square with a border using the configured life color.
 
 ## Auto-zoom
 As life iterates through generations, it is important to see where all of the life is, so the application should auto-zoom the grid each generation to ensure that the life is visible. We should make auto-zoom smooth by adding a buffer zone around the visible grid area. So keeping 20% of the visible rows and columns on the outside of the grid as the buffer. If there are 10x10 grid this then the first two rows, first two columns of squares and the last two rows and last two columns of squares are the buffer zone for zooming.

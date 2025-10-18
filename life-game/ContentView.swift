@@ -81,6 +81,9 @@ struct ContentView: View {
                         engine.insert(pattern.coordinates)
                         firstRunDismissed = true
                     },
+                    onCustom: {
+                        firstRunDismissed = true
+                    },
                     onDismiss: { firstRunDismissed = true }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -261,18 +264,33 @@ private struct LifeGridContainer: View {
     @State private var accumulatedPan: CGSize = .zero
     @GestureState private var dragOffset: CGSize = .zero
     @GestureState private var magnificationState: CGFloat = 1.0
+    @State private var hoverLocation: CGPoint?
 
     var body: some View {
         GeometryReader { geometry in
+            let canvasSize = geometry.size
             LifeGridView(
                 engine: engine,
                 pan: currentPan,
                 scale: scaledCellSize,
-                cellColor: cellColor
+                cellColor: cellColor,
+                hoverCoordinate: hoverCoordinate(for: canvasSize)
             )
             .background(Color.black.opacity(0.85))
+            .contentShape(Rectangle())
             .gesture(panGesture)
             .simultaneousGesture(pinchGesture)
+#if os(macOS)
+            .onContinuousHover(coordinateSpace: .local) { phase in
+                switch phase {
+                case .active(let location):
+                    hoverLocation = location
+                case .ended:
+                    hoverLocation = nil
+                }
+            }
+#endif
+            .simultaneousGesture(tapGesture(in: canvasSize))
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Life grid")
         }
@@ -290,7 +308,7 @@ private struct LifeGridContainer: View {
     }
 
     private var panGesture: some Gesture {
-        DragGesture()
+        DragGesture(minimumDistance: 1)
             .updating($dragOffset) { value, state, _ in
                 state = value.translation
             }
@@ -311,6 +329,38 @@ private struct LifeGridContainer: View {
             }
     }
 
+    private func tapGesture(in size: CGSize) -> some Gesture {
+        SpatialTapGesture()
+            .onEnded { value in
+                toggleCell(at: value.location, canvasSize: size)
+            }
+    }
+
+    private func toggleCell(at location: CGPoint, canvasSize: CGSize) {
+        let currentScale = scaledCellSize
+        guard let coordinate = coordinate(for: location, size: canvasSize, pan: currentPan, scale: currentScale) else {
+            return
+        }
+        engine.toggle(coordinate)
+        hoverLocation = location
+    }
+
+    private func hoverCoordinate(for size: CGSize) -> GridCoordinate? {
+        guard let hoverLocation else { return nil }
+        return coordinate(for: hoverLocation, size: size, pan: currentPan, scale: scaledCellSize)
+    }
+
+    private func coordinate(for point: CGPoint, size: CGSize, pan: CGSize, scale: CGFloat) -> GridCoordinate? {
+        guard scale > 0.001 else { return nil }
+        let center = CGPoint(
+            x: size.width / 2 + pan.width,
+            y: size.height / 2 + pan.height
+        )
+        let relativeX = (point.x - center.x) / scale
+        let relativeY = (center.y - point.y) / scale
+        return GridCoordinate(x: Int(round(relativeX)), y: Int(round(relativeY)))
+    }
+
     private func clamp(_ value: CGFloat) -> CGFloat {
         min(max(value, minZoom), maxZoom)
     }
@@ -321,6 +371,7 @@ private struct LifeGridView: View {
     let pan: CGSize
     let scale: CGFloat
     let cellColor: Color
+    let hoverCoordinate: GridCoordinate?
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -328,6 +379,7 @@ private struct LifeGridView: View {
                                  y: canvasSize.height / 2 + pan.height)
             drawGrid(in: &context, canvasSize: canvasSize, center: center)
             drawCells(in: &context, center: center)
+            drawHover(in: &context, center: center)
         }
     }
 
@@ -374,6 +426,18 @@ private struct LifeGridView: View {
             let path = Path(rect)
             context.fill(path, with: .color(cellColor))
         }
+    }
+
+    private func drawHover(in context: inout GraphicsContext, center: CGPoint) {
+        guard let hoverCoordinate else { return }
+        let cellRect = CGRect(x: -scale / 2, y: -scale / 2, width: scale, height: scale)
+        let position = CGPoint(
+            x: center.x + CGFloat(hoverCoordinate.x) * scale,
+            y: center.y - CGFloat(hoverCoordinate.y) * scale
+        )
+        let rect = cellRect.offsetBy(dx: position.x, dy: position.y)
+        let path = Path(rect)
+        context.stroke(path, with: .color(cellColor), lineWidth: 2)
     }
 }
 
@@ -443,6 +507,7 @@ private struct ControlBarView: View {
 private struct FirstRunOverlayView: View {
     let patterns: [StarterPattern]
     let onPatternSelected: (StarterPattern) -> Void
+    let onCustom: () -> Void
     let onDismiss: () -> Void
 
     var body: some View {
@@ -471,6 +536,21 @@ private struct FirstRunOverlayView: View {
                         .frame(maxWidth: .infinity)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
+                }
+                Button {
+                    onCustom()
+                } label: {
+                    VStack(spacing: 6) {
+                        Text("Custom")
+                            .font(.headline)
+                        Text("Paint your own pattern.")
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
 
