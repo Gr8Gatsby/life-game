@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Life Game Support</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>Life Game Support</h1>
+        <p>We're here to help you make the most of the Life Game simulation.</p>
+      </header>
+
+      <section>
+        <h2>Contact</h2>
+        <div class="card">
+          <p>
+            Email is the quickest way to reach the team. We respond to most messages within
+            one business day.
+          </p>
+          <a class="cta" href="mailto:support@example.com">Email Support</a>
+          <p class="note">
+            Replace <code>support@example.com</code> with your production support address
+            before publishing.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Self-Service Tips</h2>
+        <div class="card">
+          <ul>
+            <li>Review the in-app tutorial overlay for quick pattern placement tips.</li>
+            <li>
+              Use the edit toolbar to stamp pre-built structures like gliders, pulsars, and spaceships.
+            </li>
+            <li>
+              Toggle auto-zoom to keep the active population in view while the simulation runs.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Report a Problem</h2>
+        <div class="card">
+          <p>Please share the following details so we can reproduce the issue quickly:</p>
+          <ul>
+            <li>Device model and OS version</li>
+            <li>Life Game app version (see Settings &gt; About)</li>
+            <li>
+              Steps you took before the issue appeared and whether it happens every time
+            </li>
+            <li>Any screenshots or screen recordings that highlight the problem</li>
+          </ul>
+        </div>
+      </section>
+
+      <footer>
+        <p>&copy; <span id="year"></span> Life Game. All rights reserved.</p>
+      </footer>
+    </main>
+
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>

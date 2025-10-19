@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Life Game Privacy Policy</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>Privacy Policy</h1>
+        <p>Effective date: <span id="effective-date"></span></p>
+      </header>
+
+      <section>
+        <h2>Overview</h2>
+        <div class="card">
+          <p>
+            Life Game is a Conway's Game of Life simulator designed for creativity and exploration.
+            We value your privacy and built the app to operate with minimal data collection.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Information We Collect</h2>
+        <div class="card">
+          <p>
+            We do not collect personal information, analytics, or device identifiers. All simulation
+            data you create stays on your device.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Optional Diagnostics</h2>
+        <div class="card">
+          <p>
+            If enabled in Settings, the app can send crash reports and performance logs using Apple's
+            system services. These reports remove personally identifiable information and are used
+            solely to improve stability.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Third-Party Services</h2>
+        <div class="card">
+          <p>
+            Life Game does not integrate third-party analytics, advertising networks, or social
+            sharing SDKs.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Your Choices</h2>
+        <div class="card">
+          <ul>
+            <li>You can disable optional diagnostics at any time from the in-app Settings panel.</li>
+            <li>
+              You may delete the app to remove all stored data. User configurations and patterns are
+              kept locally and will be erased during deletion.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Updates to This Policy</h2>
+        <div class="card">
+          <p>
+            We may update this policy to reflect new features or legal requirements. Significant
+            changes will be announced in the app release notes and on this page, with the effective
+            date updated above.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Contact</h2>
+        <div class="card">
+          <p>
+            Questions about privacy? Reach out via
+            <a href="mailto:support@example.com">support@example.com</a>.
+          </p>
+          <p class="note">
+            Replace this email with your live privacy contact before submitting to the App Store.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <p>&copy; <span id="year"></span> Life Game. All rights reserved.</p>
+      </footer>
+    </main>
+
+    <script>
+      const now = new Date();
+      document.getElementById("effective-date").textContent = now.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      document.getElementById("year").textContent = now.getFullYear();
+    </script>
+  </body>
+</html>
