@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Life Game App Suitability</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>App Suitability</h1>
+        <p>
+          Life Game is a calm, educational simulator inspired by John Conway’s research into cellular
+          automata.
+        </p>
+      </header>
+
+      <section>
+        <h2>Purpose & Audience</h2>
+        <div class="card">
+          <p>
+            The experience showcases Conway’s Game of Life: players experiment with grid-based rules
+            to see how simple patterns grow and fade. The app is designed for curious learners,
+            educators, and fans of computational art who enjoy lighthearted discovery at their own
+            pace.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Learning Outcomes</h2>
+        <div class="card">
+          <ul>
+            <li>
+              Understand how Conway’s four rules create emergent patterns such as gliders, pulsars,
+              and Gosper glider guns.
+            </li>
+            <li>
+              Explore mathematical concepts including cellular automata, state transitions, and
+              self-organization.
+            </li>
+            <li>
+              Encourage creativity by stamping well-known patterns or designing new Life structures.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Safety & Privacy</h2>
+        <div class="card">
+          <ul>
+            <li>No third-party content, advertisements, or external links appear inside the app.</li>
+            <li>
+              Simulations run locally on the device; the app does not require network access to
+              function.
+            </li>
+            <li>
+              Optional diagnostics reporting is controlled by the user and leverages Apple’s privacy
+              protections.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Online Interactions</h2>
+        <div class="card">
+          <p>
+            Life Game is a single-player experience without real-time or asynchronous communication.
+            There is no matchmaking, user-generated content sharing, or multiplayer interaction. All
+            creations remain private on the device unless the player shares screenshots manually.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Tone & Suitability</h2>
+        <div class="card">
+          <p>
+            The app presents a minimalist grid with soft visuals and relaxing pacing, making it
+            appropriate for general audiences. There is no violence, adult content, or rapid-action
+            gameplay—just an inviting sandbox for experimenting with the patterns that made Conway’s
+            work famous.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <p>&copy; <span id="year"></span> Life Game. All rights reserved.</p>
+      </footer>
+    </main>
+
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>
