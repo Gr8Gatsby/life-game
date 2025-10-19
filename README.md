@@ -1,6 +1,6 @@
 # Life Simulator
 
-Life Simulator brings Conway's Game of Life to iPhone, iPad, and Mac with a modern interface that makes experimenting with cellular automata effortless.
+Life Simulator brings Conway's Game of Life to iPhone, iPad, and Mac with a modern interface that makes experimenting with cellular automata effortless. Visit the project homepage at [Life Simulator on GitHub Pages](https://kevin.github.io/life-game/).
 
 ## Getting Started
 - Launch the app to enter Edit Mode, where you can paint live cells directly onto the infinite grid.
