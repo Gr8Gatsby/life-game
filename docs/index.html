@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Life Game</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>Life Game</h1>
+        <p>
+          A serene playground for exploring Conway’s Game of Life. Paint classic patterns, watch
+          emergent structures bloom, and learn how simple rules give rise to complex behavior.
+        </p>
+      </header>
+
+      <section>
+        <h2>Marketing Description</h2>
+        <div class="card">
+          <p>
+            Life Game distills the legendary cellular automaton into an immersive, touch-friendly
+            experience. Stamp famous Life formations, customize colors, and control simulation speed
+            with intuitive gestures. Auto-zoom keeps every glider and pulsar in view, while
+            analytics highlight population trends across generations. Whether you are teaching
+            computational thinking or simply unwinding, Life Game reveals the beauty hidden inside
+            Conway’s four simple rules.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Helpful Links</h2>
+        <div class="card">
+          <ul>
+            <li><a href="support/">Support</a></li>
+            <li><a href="privacy/">Privacy Policy</a></li>
+            <li><a href="app-suitability/">App Suitability</a></li>
+          </ul>
+        </div>
+      </section>
+
+      <footer>
+        <p>&copy; <span id="year"></span> Life Game. All rights reserved.</p>
+      </footer>
+    </main>
+
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>
