@@ -24,9 +24,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		0A0F6BEE2EA38F4D00CF4E63 /* life-game.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "life-game.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		0A0F6BFD2EA38F4E00CF4E63 /* life-gameTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "life-gameTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		0A0F6C072EA38F4E00CF4E63 /* life-gameUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "life-gameUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A0F6BEE2EA38F4D00CF4E63 /* life-game-infinite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "life-game-infinite.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A0F6BFD2EA38F4E00CF4E63 /* life-game-infiniteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "life-game-infiniteTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A0F6C072EA38F4E00CF4E63 /* life-game-infiniteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "life-game-infiniteUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,9 +85,9 @@
 		0A0F6BEF2EA38F4D00CF4E63 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0A0F6BEE2EA38F4D00CF4E63 /* life-game.app */,
-				0A0F6BFD2EA38F4E00CF4E63 /* life-gameTests.xctest */,
-				0A0F6C072EA38F4E00CF4E63 /* life-gameUITests.xctest */,
+				0A0F6BEE2EA38F4D00CF4E63 /* life-game-infinite.app */,
+				0A0F6BFD2EA38F4E00CF4E63 /* life-game-infiniteTests.xctest */,
+				0A0F6C072EA38F4E00CF4E63 /* life-game-infiniteUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0A0F6BED2EA38F4D00CF4E63 /* life-game */ = {
+		0A0F6BED2EA38F4D00CF4E63 /* life-game-infinite */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0A0F6C112EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game" */;
+			buildConfigurationList = 0A0F6C112EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game-infinite" */;
 			buildPhases = (
 				0A0F6BEA2EA38F4D00CF4E63 /* Sources */,
 				0A0F6BEB2EA38F4D00CF4E63 /* Frameworks */,
@@ -110,16 +110,16 @@
 			fileSystemSynchronizedGroups = (
 				0A0F6BF02EA38F4D00CF4E63 /* life-game */,
 			);
-			name = "life-game";
+			name = "life-game-infinite";
 			packageProductDependencies = (
 			);
 			productName = "life-game";
-			productReference = 0A0F6BEE2EA38F4D00CF4E63 /* life-game.app */;
+			productReference = 0A0F6BEE2EA38F4D00CF4E63 /* life-game-infinite.app */;
 			productType = "com.apple.product-type.application";
 		};
-		0A0F6BFC2EA38F4E00CF4E63 /* life-gameTests */ = {
+		0A0F6BFC2EA38F4E00CF4E63 /* life-game-infiniteTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0A0F6C142EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-gameTests" */;
+			buildConfigurationList = 0A0F6C142EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game-infiniteTests" */;
 			buildPhases = (
 				0A0F6BF92EA38F4E00CF4E63 /* Sources */,
 				0A0F6BFA2EA38F4E00CF4E63 /* Frameworks */,
@@ -133,16 +133,16 @@
 			fileSystemSynchronizedGroups = (
 				0A0F6C002EA38F4E00CF4E63 /* life-gameTests */,
 			);
-			name = "life-gameTests";
+			name = "life-game-infiniteTests";
 			packageProductDependencies = (
 			);
 			productName = "life-gameTests";
-			productReference = 0A0F6BFD2EA38F4E00CF4E63 /* life-gameTests.xctest */;
+			productReference = 0A0F6BFD2EA38F4E00CF4E63 /* life-game-infiniteTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		0A0F6C062EA38F4E00CF4E63 /* life-gameUITests */ = {
+		0A0F6C062EA38F4E00CF4E63 /* life-game-infiniteUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0A0F6C172EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-gameUITests" */;
+			buildConfigurationList = 0A0F6C172EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game-infiniteUITests" */;
 			buildPhases = (
 				0A0F6C032EA38F4E00CF4E63 /* Sources */,
 				0A0F6C042EA38F4E00CF4E63 /* Frameworks */,
@@ -156,11 +156,11 @@
 			fileSystemSynchronizedGroups = (
 				0A0F6C0A2EA38F4E00CF4E63 /* life-gameUITests */,
 			);
-			name = "life-gameUITests";
+			name = "life-game-infiniteUITests";
 			packageProductDependencies = (
 			);
 			productName = "life-gameUITests";
-			productReference = 0A0F6C072EA38F4E00CF4E63 /* life-gameUITests.xctest */;
+			productReference = 0A0F6C072EA38F4E00CF4E63 /* life-game-infiniteUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 0A0F6BE92EA38F4D00CF4E63 /* Build configuration list for PBXProject "life-game" */;
+			buildConfigurationList = 0A0F6BE92EA38F4D00CF4E63 /* Build configuration list for PBXProject "life-game-infinite" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				0A0F6BED2EA38F4D00CF4E63 /* life-game */,
-				0A0F6BFC2EA38F4E00CF4E63 /* life-gameTests */,
-				0A0F6C062EA38F4E00CF4E63 /* life-gameUITests */,
+				0A0F6BED2EA38F4D00CF4E63 /* life-game-infinite */,
+				0A0F6BFC2EA38F4E00CF4E63 /* life-game-infiniteTests */,
+				0A0F6C062EA38F4E00CF4E63 /* life-game-infiniteUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		0A0F6BFF2EA38F4E00CF4E63 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0A0F6BED2EA38F4D00CF4E63 /* life-game */;
+			target = 0A0F6BED2EA38F4D00CF4E63 /* life-game-infinite */;
 			targetProxy = 0A0F6BFE2EA38F4E00CF4E63 /* PBXContainerItemProxy */;
 		};
 		0A0F6C092EA38F4E00CF4E63 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0A0F6BED2EA38F4D00CF4E63 /* life-game */;
+			target = 0A0F6BED2EA38F4D00CF4E63 /* life-game-infinite */;
 			targetProxy = 0A0F6C082EA38F4E00CF4E63 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -403,7 +403,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Simple Life";
+				INFOPLIST_KEY_CFBundleDisplayName = "Life Game Infinite";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.simulation-games";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -440,7 +440,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Simple Life";
+				INFOPLIST_KEY_CFBundleDisplayName = "Life Game Infinite";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.simulation-games";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -480,7 +480,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/life-game.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/life-game";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/life-game-infinite.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/life-game-infinite";
 			};
 			name = Debug;
 		};
@@ -501,7 +501,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/life-game.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/life-game";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/life-game-infinite.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/life-game-infinite";
 			};
 			name = Release;
 		};
@@ -546,7 +546,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0A0F6BE92EA38F4D00CF4E63 /* Build configuration list for PBXProject "life-game" */ = {
+		0A0F6BE92EA38F4D00CF4E63 /* Build configuration list for PBXProject "life-game-infinite" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A0F6C0F2EA38F4E00CF4E63 /* Debug */,
@@ -555,7 +555,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0A0F6C112EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game" */ = {
+		0A0F6C112EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game-infinite" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A0F6C122EA38F4E00CF4E63 /* Debug */,
@@ -564,7 +564,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0A0F6C142EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-gameTests" */ = {
+		0A0F6C142EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game-infiniteTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A0F6C152EA38F4E00CF4E63 /* Debug */,
@@ -573,7 +573,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0A0F6C172EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-gameUITests" */ = {
+		0A0F6C172EA38F4E00CF4E63 /* Build configuration list for PBXNativeTarget "life-game-infiniteUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A0F6C182EA38F4E00CF4E63 /* Debug */,

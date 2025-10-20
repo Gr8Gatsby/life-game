@@ -48,6 +48,7 @@ private enum PlaybackMetrics {
 }
 
 struct ContentView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var engine = GameOfLifeEngine()
 
     @State private var zoomFactor: CGFloat = 1.0
@@ -63,6 +64,7 @@ struct ContentView: View {
     @State private var populationHistory: [Int] = []
     @State private var undoHistory: [ActionRecord] = []
     @State private var redoHistory: [ActionRecord] = []
+    @State private var showPatternPicker = false
 
     @AppStorage("life.settings.generationSpeed") private var generationSpeed = SettingsDefaults.generationSpeed
     @AppStorage("life.settings.autoZoomEnabled") private var autoZoomEnabled = SettingsDefaults.autoZoomEnabled
@@ -74,82 +76,112 @@ struct ContentView: View {
     @AppStorage("life.settings.autoZoomMode") private var autoZoomModeRawValue = SettingsDefaults.autoZoomModeRawValue
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            HStack(spacing: 0) {
-                if isEditMode {
-                    PatternSidebar(
-                        patterns: PatternStamp.library,
-                        selectedPattern: activePattern,
-                        cellColor: cellColor,
-                        backgroundColor: gridBackgroundColor,
-                        onSelect: { activePattern = $0 }
-                    )
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let sidebarVisible = shouldShowSidebar(forWidth: width)
+            let compactLayout = isCompactLayout(forWidth: width)
+
+            ZStack(alignment: .topLeading) {
+                HStack(spacing: 0) {
+                    if sidebarVisible {
+                        PatternSidebar(
+                            patterns: PatternStamp.library,
+                            selectedPattern: activePattern,
+                            cellColor: cellColor,
+                            backgroundColor: gridBackgroundColor,
+                            onSelect: { activePattern = $0 }
+                        )
+                    }
+
+                    VStack(spacing: 0) {
+                        AnalyticsHeaderView(
+                            engine: engine,
+                            maxLiveCells: maxLiveCells,
+                            minLiveCells: minLiveCells,
+                            populationHistory: populationHistory,
+                            cellColor: cellColor,
+                            backgroundColor: gridBackgroundColor
+                        )
+                        LifeGridContainer(
+                            engine: engine,
+                            zoomFactor: $zoomFactor,
+                            minZoom: LayoutMetrics.minZoom,
+                            maxZoom: LayoutMetrics.maxZoom,
+                            baseCellSize: LayoutMetrics.baseCellSize,
+                            cellColor: cellColor,
+                            gridBackgroundColor: gridBackgroundColor,
+                            gridLineColor: gridLineColor,
+                            axisLineColor: axisLineColor,
+                            isEditMode: isEditMode,
+                            activePattern: activePattern,
+                            onToggleCell: { performToggle(at: $0) },
+                            onStampPattern: { coordinate, pattern in performStamp(pattern: pattern, at: coordinate) },
+                            panOffset: $panOffset,
+                            gridSize: $gridSize
+                        )
+                        ControlBarView(
+                            isPlaying: isPlaying,
+                            isEditMode: isEditMode,
+                            canStepBackward: engine.generation > 0,
+                            showsPatternButton: isEditMode && !sidebarVisible,
+                            isPatternActive: activePattern != nil,
+                            isCompactLayout: compactLayout,
+                            onPlayToggle: togglePlayPause,
+                            onStepForward: stepForward,
+                            onStepBackward: stepBackward,
+                            onReset: resetSimulation,
+                            onZoomOut: { adjustZoom(by: -0.2) },
+                            onZoomIn: { adjustZoom(by: 0.2) },
+                            onZoomReset: {
+                                zoomFactor = 1.0
+                                panOffset = .zero
+                            },
+                            onShowPatternPicker: { showPatternPicker = true },
+                            onShowSettings: { showSettings = true },
+                            onEditModeToggle: { newValue in
+                                isEditMode = newValue
+                                if !newValue {
+                                    activePattern = nil
+                                    showPatternPicker = false
+                                }
+                            }
+                        )
+                    }
+                    .background(.background)
                 }
 
-                VStack(spacing: 0) {
-                    AnalyticsHeaderView(
-                        engine: engine,
-                        maxLiveCells: maxLiveCells,
-                        minLiveCells: minLiveCells,
-                        populationHistory: populationHistory,
-                        cellColor: cellColor,
-                        backgroundColor: gridBackgroundColor
-                    )
-                    LifeGridContainer(
-                        engine: engine,
-                        zoomFactor: $zoomFactor,
-                        minZoom: LayoutMetrics.minZoom,
-                        maxZoom: LayoutMetrics.maxZoom,
-                        baseCellSize: LayoutMetrics.baseCellSize,
-                        cellColor: cellColor,
-                        gridBackgroundColor: gridBackgroundColor,
-                        gridLineColor: gridLineColor,
-                        axisLineColor: axisLineColor,
-                        isEditMode: isEditMode,
-                        activePattern: activePattern,
-                        onToggleCell: { performToggle(at: $0) },
-                        onStampPattern: { coordinate, pattern in performStamp(pattern: pattern, at: coordinate) },
-                        panOffset: $panOffset,
-                        gridSize: $gridSize
-                    )
-                    ControlBarView(
-                        isPlaying: isPlaying,
-                        isEditMode: isEditMode,
-                        canStepBackward: engine.generation > 0,
-                        onPlayToggle: togglePlayPause,
-                        onStepForward: stepForward,
-                        onStepBackward: stepBackward,
-                        onReset: resetSimulation,
-                        onZoomOut: { adjustZoom(by: -0.2) },
-                        onZoomIn: { adjustZoom(by: 0.2) },
-                        onZoomReset: {
-                            zoomFactor = 1.0
-                            panOffset = .zero
-                        },
-                        onShowSettings: { showSettings = true },
-                        onEditModeToggle: { newValue in
-                            isEditMode = newValue
-                            if !newValue { activePattern = nil }
-                        }
-                    )
-                }
-                .background(.background)
+                Button(action: undoAction) { EmptyView() }
+                    .keyboardShortcut("z", modifiers: [.command])
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+
+                Button(action: redoAction) { EmptyView() }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+
+                Button(action: { activePattern = nil }) { EmptyView() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
             }
-
-            Button(action: undoAction) { EmptyView() }
-                .keyboardShortcut("z", modifiers: [.command])
-                .frame(width: 0, height: 0)
-                .opacity(0)
-
-            Button(action: redoAction) { EmptyView() }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .frame(width: 0, height: 0)
-                .opacity(0)
-
-            Button(action: { activePattern = nil }) { EmptyView() }
-                .keyboardShortcut(.escape, modifiers: [])
-                .frame(width: 0, height: 0)
-                .opacity(0)
+            .onChange(of: width) { _, newWidth in
+                if shouldShowSidebar(forWidth: newWidth) {
+                    showPatternPicker = false
+                }
+            }
+            .onChange(of: horizontalSizeClass) { _, _ in
+                if shouldShowSidebar(forWidth: width) {
+                    showPatternPicker = false
+                }
+            }
+            .onChange(of: isEditMode) { _, newValue in
+                if !newValue {
+                    showPatternPicker = false
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+            .background(sceneBackgroundColor.ignoresSafeArea())
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
@@ -162,6 +194,22 @@ struct ContentView: View {
                 gridLineColor: gridLineBinding,
                 axisLineColor: axisLineBinding,
                 onResetDefaults: resetSettingsToDefaults
+            )
+        }
+        .sheet(isPresented: $showPatternPicker) {
+            PatternPickerSheet(
+                patterns: PatternStamp.library,
+                selectedPattern: activePattern,
+                cellColor: cellColor,
+                backgroundColor: gridBackgroundColor,
+                onSelect: { pattern in
+                    activePattern = pattern
+                    showPatternPicker = false
+                },
+                onClearSelection: {
+                    activePattern = nil
+                    showPatternPicker = false
+                }
             )
         }
         .onChange(of: generationSpeed) { _, _ in
@@ -189,6 +237,37 @@ struct ContentView: View {
 
     private var axisLineColor: Color {
         Color(hex: axisLineHex) ?? .white.opacity(0.35)
+    }
+
+    private var sceneBackgroundColor: Color {
+#if os(macOS)
+        return Color(nsColor: .windowBackgroundColor)
+#else
+        return Color(uiColor: .systemBackground)
+#endif
+    }
+
+    private func shouldShowSidebar(forWidth width: CGFloat) -> Bool {
+        guard isEditMode else { return false }
+#if os(macOS)
+        return true
+#else
+        if let horizontalSizeClass, horizontalSizeClass == .compact {
+            return false
+        }
+        return width >= 900
+#endif
+    }
+
+    private func isCompactLayout(forWidth width: CGFloat) -> Bool {
+#if os(macOS)
+        return false
+#else
+        if let horizontalSizeClass, horizontalSizeClass == .compact {
+            return true
+        }
+        return width < 700
+#endif
     }
 
     private var cellColorBinding: Binding<Color> {
@@ -485,13 +564,26 @@ private struct AnalyticsHeaderView: View {
                 .font(.headline)
 
             if hasActivity {
-                HStack(spacing: 16) {
-                    MetricView(title: "Generation", value: "\(engine.generation)")
-                    MetricView(title: "Live Cells", value: "\(engine.liveCells.count)")
-                    MetricView(title: "Max", value: "\(maxLiveCells)")
-                    MetricView(title: "Min", value: "\(minLiveCells)")
-                    MetricView(title: "Outcome", value: outcomeDescription(engine.lastOutcome))
-                    Spacer()
+                let metrics: [(String, String)] = [
+                    ("Generation", "\(engine.generation)"),
+                    ("Live Cells", "\(engine.liveCells.count)"),
+                    ("Max", "\(maxLiveCells)"),
+                    ("Min", "\(minLiveCells)"),
+                    ("Outcome", outcomeDescription(engine.lastOutcome))
+                ]
+
+                ViewThatFits {
+                    HStack(spacing: 16) {
+                        ForEach(metrics, id: \.0) { metric in
+                            MetricView(title: metric.0, value: metric.1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
+                        ForEach(metrics, id: \.0) { metric in
+                            MetricView(title: metric.0, value: metric.1)
+                        }
+                    }
                 }
             } else {
                 Text("Toggle cells in the grid or drop a starter pattern to begin the simulation.")
@@ -923,6 +1015,98 @@ private struct PatternThumbnail: View {
     }
 }
 
+private struct PatternPickerSheet: View {
+    let patterns: [PatternStamp]
+    let selectedPattern: PatternStamp?
+    let cellColor: Color
+    let backgroundColor: Color
+    let onSelect: (PatternStamp?) -> Void
+    let onClearSelection: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    private let columns = [GridItem(.adaptive(minimum: 88), spacing: 12)]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(patterns) { pattern in
+                        Button {
+                            if selectedPattern?.id == pattern.id {
+                                onSelect(nil)
+                            } else {
+                                onSelect(pattern)
+                            }
+                            dismiss()
+                        } label: {
+                            VStack(spacing: 8) {
+                                PatternThumbnail(pattern: pattern, cellColor: cellColor, backgroundColor: backgroundColor)
+                                    .frame(width: 56, height: 56)
+                                Text(pattern.name)
+                                    .font(.caption)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .foregroundStyle(.primary.opacity(0.85))
+                            }
+                            .padding(10)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(selectedPattern?.id == pattern.id ? cellColor.opacity(0.22) : Color.primary.opacity(0.06))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(selectedPattern?.id == pattern.id ? cellColor : Color.primary.opacity(0.12), lineWidth: selectedPattern?.id == pattern.id ? 2 : 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+            .safeAreaInset(edge: .top) {
+                VStack(spacing: 8) {
+                    Text("Choose a pattern to stamp onto the grid.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let selectedPattern {
+                        Text("Currently selected: \(selectedPattern.name)")
+                            .font(.footnote)
+                            .foregroundStyle(.primary.opacity(0.7))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+                .background(.thinMaterial)
+            }
+            .navigationTitle("Patterns")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Clear") {
+                        onClearSelection()
+                        dismiss()
+                    }
+                    .disabled(selectedPattern == nil)
+                }
+            }
+        }
+#if os(iOS)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+#endif
+    }
+}
+
 private struct PatternToolbar: View {
     let patterns: [PatternStamp]
     let selectedPattern: PatternStamp?
@@ -1070,6 +1254,9 @@ private struct ControlBarView: View {
     let isPlaying: Bool
     let isEditMode: Bool
     let canStepBackward: Bool
+    let showsPatternButton: Bool
+    let isPatternActive: Bool
+    let isCompactLayout: Bool
     let onPlayToggle: () -> Void
     let onStepForward: () -> Void
     let onStepBackward: () -> Void
@@ -1077,10 +1264,31 @@ private struct ControlBarView: View {
     let onZoomOut: () -> Void
     let onZoomIn: () -> Void
     let onZoomReset: () -> Void
+    let onShowPatternPicker: () -> Void
     let onShowSettings: () -> Void
     let onEditModeToggle: (Bool) -> Void
 
     var body: some View {
+        Group {
+            if isCompactLayout {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    controlStack
+                        .padding(.horizontal, 20)
+                }
+#if os(iOS)
+                .scrollIndicators(.hidden)
+#endif
+            } else {
+                controlStack
+                    .padding(.horizontal, 20)
+            }
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
+    }
+
+    private var controlStack: some View {
         HStack(spacing: 20) {
             Button(action: onPlayToggle) {
                 Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
@@ -1116,7 +1324,18 @@ private struct ControlBarView: View {
                 Label("Reset Zoom", systemImage: "arrow.uturn.backward")
             }
 
-            Spacer()
+            if showsPatternButton {
+                Divider()
+                    .frame(height: 18)
+                    .overlay(Color.secondary.opacity(0.4))
+
+                Button(action: onShowPatternPicker) {
+                    Label("Patterns", systemImage: isPatternActive ? "square.grid.3x3.fill" : "square.grid.3x3")
+                }
+                .accessibilityLabel("Choose Pattern")
+            }
+
+            Spacer(minLength: 0)
 
             Toggle(isOn: Binding(
                 get: { isEditMode },
@@ -1134,10 +1353,7 @@ private struct ControlBarView: View {
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.bordered)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        .frame(maxWidth: .infinity, alignment: isCompactLayout ? .leading : .center)
     }
 }
 
@@ -1277,14 +1493,17 @@ private extension Color {
     }
 
     var hexString: String? {
+        let redInt: Int
+        let greenInt: Int
+        let blueInt: Int
         #if canImport(AppKit)
         let platformColor = PlatformColor(self)
         guard let rgbColor = platformColor.usingColorSpace(.deviceRGB) else {
             return nil
         }
-        let r = Int(round(rgbColor.redComponent * 255))
-        let g = Int(round(rgbColor.greenComponent * 255))
-        let b = Int(round(rgbColor.blueComponent * 255))
+        redInt = Int(round(rgbColor.redComponent * 255))
+        greenInt = Int(round(rgbColor.greenComponent * 255))
+        blueInt = Int(round(rgbColor.blueComponent * 255))
         #elseif canImport(UIKit)
         let platformColor = PlatformColor(self)
         var r: CGFloat = 0
@@ -1292,13 +1511,13 @@ private extension Color {
         var b: CGFloat = 0
         var a: CGFloat = 0
         guard platformColor.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
-        let r = Int(round(r * 255))
-        let g = Int(round(g * 255))
-        let b = Int(round(b * 255))
+        redInt = Int(round(r * 255))
+        greenInt = Int(round(g * 255))
+        blueInt = Int(round(b * 255))
         #else
         return nil
         #endif
-        return String(format: "#%02X%02X%02X", r, g, b)
+        return String(format: "#%02X%02X%02X", redInt, greenInt, blueInt)
     }
 }
 
